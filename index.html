@@ -1,36 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
 <title>Trustana — Nigeria's Freelance Escrow</title>
-
-<link rel="icon" type="image/png" href="/images/trustana-favicon-512.png" />
-<meta name="theme-color" content="#F5A623" />
-<meta name="description" content="Nigeria's first AI-powered freelance escrow. Lock payments in Crypto or Fiat. SmartVerify AI checks delivery. Zero scams." />
-
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://trustana-ng.vercel.app/" />
-<meta property="og:title" content="Trustana - Nigeria's Freelance Escrow" />
-<meta property="og:description" content="Nigeria's first AI-powered freelance escrow. Lock payments in Crypto or Fiat. SmartVerify AI checks delivery. Zero scams." />
-<meta property="og:image" content="https://trustana-ng.vercel.app/images/g.png" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
-
-<!-- Twitter / X Card -->
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:url" content="https://trustana-ng.vercel.app/" />
-<meta name="twitter:title" content="Trustana - Nigeria's Freelance Escrow" />
-<meta name="twitter:description" content="Nigeria's first AI-powered freelance escrow. Lock payments in Crypto or Fiat. SmartVerify AI checks delivery. Zero scams." />
-<meta name="twitter:image" content="https://trustana-ng.vercel.app/images/g.png" />
-
-
-<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,5 95,27 95,73 50,95 5,73 5,27' fill='%23F5A623'/></svg>"/>
+<meta name="theme-color" content="#F5A623"/>
+<meta name="description" content="Nigeria's first AI-powered freelance escrow. Every payment settles in USDC — fund via Crypto or Fiat, in any currency. SmartVerify AI checks delivery. Zero scams."/>
+<meta property="og:title" content="Trustana — Nigeria's Freelance Escrow"/>
+<meta property="og:description" content="Lock client funds before you write a single line of code. SmartVerify AI. Powered by USDC."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@500;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<script>emailjs.init("fNq7gc8Jy8_wvazaf");</script><script src="https://js.paystack.co/v1/inline.js"></script>
 <script src="https://js.paystack.co/v1/inline.js"></script>
 <!-- Firebase Realtime Database SDK -->
 <script type="module">
@@ -42,44 +24,102 @@
 // 4. In left menu: Build > Realtime Database > Create database
 //    > Choose region > Start in TEST MODE > Enable
 // 5. Paste your config values below
+// NOTE: Test-mode rules allow anyone to read/write your whole
+// database and auto-lock after 30 days. Fine for local testing —
+// tighten the Rules tab before any real users touch this.
+// (User emails are auto-sanitized for Firebase's key rules below —
+// no action needed here.)
 // ============================================================
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
 const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  databaseURL:       "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId:         "YOUR_PROJECT",
-  storageBucket:     "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey:            "AIzaSyD6B4hNFWFQwvIhG878hZYzNcgETfKqir0",
+  authDomain:        "trustana-test.firebaseapp.com",
+  databaseURL:       "https://trustana-test-default-rtdb.firebaseio.com",
+  projectId:         "trustana-test",
+  storageBucket:     "trustana-test.firebasestorage.app",
+  messagingSenderId: "788748238242",
+  appId:             "1:788748238242:web:c8807049a041ff81e4c6fb"
 };
 
-window._fbReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
+window._fbReady = firebaseConfig.apiKey !== "YOUR_API_KEY"
+  && firebaseConfig.databaseURL
+  && !firebaseConfig.databaseURL.includes("YOUR_PROJECT")
+  && !firebaseConfig.databaseURL.includes("PASTE_YOUR");
 
+// Firebase Realtime Database keys can't contain '.', '#', '$', '[' or ']' —
+// but this app's "store" object is keyed by user email (which always has a
+// '.'). We transparently swap '.' <-> ',' at the Firebase boundary only, so
+// every other part of the app can keep using real emails as keys.
+function _fbKeyOut(k){ return String(k).replace(/\./g, ','); }
+function _fbKeyIn(k){ return String(k).replace(/,/g, '.'); }
+function _fbSanitizeStore(store){
+  if(!store || typeof store!=='object') return store;
+  const out={};
+  for(const k in store){
+    if(k==='__pending__' && store[k] && typeof store[k]==='object'){
+      const p={};
+      for(const pk in store[k]) p[_fbKeyOut(pk)]=store[k][pk];
+      out[_fbKeyOut(k)]=p;
+    } else {
+      out[_fbKeyOut(k)]=store[k];
+    }
+  }
+  return out;
+}
+function _fbDesanitizeStore(store){
+  if(!store || typeof store!=='object') return store;
+  const out={};
+  for(const k in store){
+    const realKey=_fbKeyIn(k);
+    if(realKey==='__pending__' && store[k] && typeof store[k]==='object'){
+      const p={};
+      for(const pk in store[k]) p[_fbKeyIn(pk)]=store[k][pk];
+      out[realKey]=p;
+    } else {
+      out[realKey]=store[k];
+    }
+  }
+  return out;
+}
+
+let _fbInitOk = false;
 if (window._fbReady) {
-  const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
 
-  window._fbSet = async (path, data) => {
-    try { await set(ref(db, path), data); return true; }
-    catch(e) { console.warn('FB write failed:', e.message); return false; }
-  };
+    window._fbSet = async (path, data) => {
+      try { await set(ref(db, path), path==='store'?_fbSanitizeStore(data):data); return true; }
+      catch(e) { console.warn('FB write failed:', e.message); return false; }
+    };
 
-  window._fbGet = async (path) => {
-    try {
-      const snap = await get(ref(db, path));
-      return snap.exists() ? snap.val() : null;
-    } catch(e) { console.warn('FB read failed:', e.message); return null; }
-  };
+    window._fbGet = async (path) => {
+      try {
+        const snap = await get(ref(db, path));
+        if(!snap.exists()) return null;
+        const val=snap.val();
+        return path==='store'?_fbDesanitizeStore(val):val;
+      } catch(e) { console.warn('FB read failed:', e.message); return null; }
+    };
 
-  window._fbListen = (path, cb) => {
-    return onValue(ref(db, path), snap => cb(snap.exists() ? snap.val() : null));
-  };
+    window._fbListen = (path, cb) => {
+      return onValue(ref(db, path), snap => {
+        if(!snap.exists()){cb(null);return;}
+        const val=snap.val();
+        cb(path==='store'?_fbDesanitizeStore(val):val);
+      });
+    };
 
-  console.log('Firebase ready - real-time sync ON');
-} else {
+    console.log('Firebase ready - real-time sync ON');
+    _fbInitOk = true;
+  } catch(e) {
+    console.warn('Firebase init failed, falling back to localStorage only:', e.message);
+  }
+}
+if (!_fbInitOk) {
+  window._fbReady = false;
   window._fbSet = async () => false;
   window._fbGet = async () => null;
   window._fbListen = () => () => {};
@@ -5497,8 +5537,9 @@ async function loginOK(em){
   }
   startAutoChecks();
   startFirebaseListener();
+  startChatWatcher();
 }
-function doSignOut(){closeModal('m-signout');const _sn=getUser()?.fname||'';pushNotif('info','Signed Out','See you next time, '+_sn+'! Your data is saved.');session=null;stopAutoChecks();stopFirebaseListener();histStack=[];const mnul=document.getElementById('mn-ul');if(mnul){mnul.textContent='Account';mnul.style.color='';}document.querySelectorAll('.mn-acct-dot').forEach(d=>d.style.display='none');showToast('Signed out');setTimeout(()=>{goTo('s-land');},300);}
+function doSignOut(){closeModal('m-signout');const _sn=getUser()?.fname||'';pushNotif('info','Signed Out','See you next time, '+_sn+'! Your data is saved.');session=null;stopAutoChecks();stopFirebaseListener();stopChatWatcher();histStack=[];const mnul=document.getElementById('mn-ul');if(mnul){mnul.textContent='Account';mnul.style.color='';}document.querySelectorAll('.mn-acct-dot').forEach(d=>d.style.display='none');showToast('Signed out');setTimeout(()=>{goTo('s-land');},300);}
 
 // -- WHATSAPP (Twilio) -- credentials now in CONFIG block above
 // -- CALLMEBOT ALTERNATIVE --
@@ -5655,6 +5696,33 @@ function checkAuto(){const u=getUser();if(!u)return;let ch=false;u.escrows.forEa
   });if(ch){saveUser(u);renderDash();renderNaira();}}
 function getTL(at){const ms=at-Date.now();if(ms<=0)return{str:'00:00:00',pct:0,urgent:true};const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000),s=Math.floor((ms%60000)/1000);return{str:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`,pct:Math.max(0,ms/AUTO_RELEASE_MS*100),urgent:ms<3600000};}
 
+// Lets the client end the cancellation period early (e.g. an urgent job that
+// needs to start right away). Only the client can do this, and only while
+// the window is still active.
+function waiveCancelWindow(escId){
+  const u=getUser();
+  const e=u&&u.escrows.find(x=>x.id===escId);
+  if(!e){showToast('Escrow not found',true);return;}
+  const cw=getCancelWindowStatus(e);
+  if(!cw.active){showToast('Cancellation window is already closed',true);return;}
+  e.cancellationDeadline=Date.now();
+  saveUser(u);
+  if(e.flEmail)syncToFreelancer(e,u.email);
+  pushNotif('lock','Cancellation Window Waived','You let the freelancer start early on "'+e.job.slice(0,30)+'".',e.id);
+  showToast('\u26A1 Cancellation window waived \u2014 freelancer can start now');
+  if(activeEscId===escId&&document.getElementById('s-detail')&&document.getElementById('s-detail').classList.contains('active'))viewDetail(escId);
+  if(document.getElementById('s-dash')&&document.getElementById('s-dash').classList.contains('active'))renderDash();
+}
+window.waiveCancelWindow=waiveCancelWindow;
+function confirmWaiveCancelWindow(escId){
+  const u=getUser(),e=u&&u.escrows.find(x=>x.id===escId);
+  if(!e)return;
+  if(confirm('End the cancellation window now? You will no longer be able to cancel this escrow for a full refund, and the freelancer will be able to start immediately. Only do this if you\u2019re confident and the work is urgent.')){
+    waiveCancelWindow(escId);
+  }
+}
+window.confirmWaiveCancelWindow=confirmWaiveCancelWindow;
+
 function getCancelWindowStatus(e){
   if(!e.cancellationDeadline) return {active:false,expired:false,timeLeft:'',pct:0};
   const ms=e.cancellationDeadline-Date.now();
@@ -5755,7 +5823,7 @@ function renderMilestones(){
     <div class="milestone-item">
       <div class="mi-header"><span class="mi-num">Milestone ${i+1}</span>${milestoneList.length>1?`<button class="mi-remove" onclick="removeMilestone(${m.id})">\u2715</button>`:''}</div>
       <div class="mi-fields">
-        <div class="field" style="margin-bottom:0"><input type="text" placeholder="e.g. UI Design & Wireframes" value="${m.name}" oninput="milestoneList[${i}].name=this.value;livePreview()"/></div>
+        <div class="field" style="margin-bottom:0"><input type="text" placeholder="e.g. UI Design & Wireframes" value="${escapeHtml(m.name)}" oninput="milestoneList[${i}].name=this.value;livePreview()"/></div>
         <div class="mi-amt"><span class="mi-amt-label" id="ms-currency-label-${i}">$</span><input type="number" style="width:100px;margin-bottom:0" placeholder="0.00" min="0" step="0.01" value="${m.amount||''}" oninput="milestoneList[${i}].amount=parseFloat(this.value)||0;livePreview()"/></div>
       </div>
     </div>`).join('');
@@ -5926,6 +5994,41 @@ function renderChat(e,isFLOverride){
     return `<div class="chat-msg ${mine?'chat-msg-mine':'chat-msg-theirs'}">${escapeHtml(m.text)}<div class="chat-msg-meta">${who} \u00b7 ${time}</div></div>`;
   }).join('');
   wrap.scrollTop=wrap.scrollHeight;
+}
+// Watches ALL of the user's escrows (not just the one currently open) for new
+// incoming chat messages, and pops a toast for each one as it arrives.
+let chatWatchI=null;
+function startChatWatcher(){
+  stopChatWatcher();
+  chatWatchI=setInterval(checkChatMessages,5000);
+}
+function stopChatWatcher(){if(chatWatchI){clearInterval(chatWatchI);chatWatchI=null;}}
+function checkChatMessages(){
+  const u=getUser();if(!u||!u.escrows)return;
+  const store=loadStore();
+  let changed=false;
+  u.escrows.forEach(e=>{
+    const counterpartEmail=_chatCounterpartEmail(u,e);
+    if(!counterpartEmail)return;
+    const other=store[counterpartEmail];
+    if(!other||!other.escrows)return;
+    const otherEsc=other.escrows.find(x=>x.id===e.id);
+    if(!otherEsc||!otherEsc.chat||!otherEsc.chat.length)return;
+    const mine=e.chat||[];
+    const newer=otherEsc.chat.filter(m=>m.from!==u.email&&!mine.find(x=>x.id===m.id));
+    if(newer.length){
+      e.chat=[...mine,...newer].sort((a,b)=>a.ts-b.ts);
+      changed=true;
+      newer.forEach(m=>{
+        const preview=m.text.length>60?m.text.slice(0,60)+'\u2026':m.text;
+        showToast('\uD83D\uDCAC '+(m.fromName||'New message')+': '+preview);
+      });
+      if(activeEscId===e.id&&document.getElementById('s-detail')&&document.getElementById('s-detail').classList.contains('active')){
+        renderChat(e,_chatIsFL(u,e));
+      }
+    }
+  });
+  if(changed)saveUser(u);
 }
 function sendChatMessage(){
   const ta=document.getElementById('chat-input');
@@ -6268,7 +6371,7 @@ function openSubmitAll(escId){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div>
           <span style="font-family:var(--ff-mono);font-size:.65rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.5px">Milestone ${m.id}</span>
-          <div style="font-size:.84rem;font-weight:600;color:var(--white);margin-top:2px">${m.name}</div>
+          <div style="font-size:.84rem;font-weight:600;color:var(--white);margin-top:2px">${escapeHtml(m.name)}</div>
         </div>
         <span style="font-family:var(--ff-head);font-size:.9rem;color:${msColor}">${msAmt(m)}</span>
       </div>
@@ -6369,10 +6472,10 @@ function showSVResult(r,e){
   const v=vm[r.verdict]||vm.partial,sc=r.verdict==='pass'?'var(--green)':r.verdict==='fail'?'var(--red)':'var(--amber)';
   document.getElementById('ai-rc').innerHTML=`
     <div style="background:var(--ink3);border-radius:var(--r);padding:16px;border:1px solid var(--border)">
-      <div class="sv-result-header"><div class="sv-icon ${v.cls}">${v.icon}</div><div class="sv-verdict-wrap"><div class="sv-label">SmartVerify\u2122 Verdict</div><div class="sv-verdict ${v.cls}">${v.label}</div>${r.summary?`<div style="font-size:.76rem;color:var(--stone2);margin-top:4px">${r.summary}</div>`:''}</div></div>
+      <div class="sv-result-header"><div class="sv-icon ${v.cls}">${v.icon}</div><div class="sv-verdict-wrap"><div class="sv-label">SmartVerify\u2122 Verdict</div><div class="sv-verdict ${v.cls}">${v.label}</div>${r.summary?`<div style="font-size:.76rem;color:var(--stone2);margin-top:4px">${escapeHtml(r.summary)}</div>`:''}</div></div>
       <div class="sv-score-row"><div style="font-size:.7rem;color:var(--stone);font-weight:600;text-transform:uppercase;letter-spacing:.5px;width:50px">Score</div><div class="sv-score-bar-wrap"><div class="sv-score-bar" style="width:${r.score||0}%;background:${sc}"></div></div><div class="sv-score-pct" style="color:${sc}">${r.score!=null?r.score+'%':''}</div></div>
-      <div class="sv-checks">${(r.items||[]).map(i=>{const ok=i.includes('\u2713'),fail=i.includes('\u2717');return`<div class="sv-check ${ok?'ok':fail?'fail':'warn'}"><span class="sv-check-icon">${ok?'\u2705':fail?'\u274C':'\u26A0\uFE0F'}</span><span>${i}</span></div>`;}).join('')}</div>
-      ${r.note?`<div class="sv-note">\uD83D\uDCA1 ${r.note}</div>`:''}
+      <div class="sv-checks">${(r.items||[]).map(i=>{const ok=i.includes('\u2713'),fail=i.includes('\u2717');return`<div class="sv-check ${ok?'ok':fail?'fail':'warn'}"><span class="sv-check-icon">${ok?'\u2705':fail?'\u274C':'\u26A0\uFE0F'}</span><span>${escapeHtml(i)}</span></div>`;}).join('')}</div>
+      ${r.note?`<div class="sv-note">\uD83D\uDCA1 ${escapeHtml(r.note)}</div>`:''}
     </div>`;
   document.getElementById('ai-rc').style.display='block';
   document.getElementById('verify-btns').style.display='flex';
@@ -6448,10 +6551,10 @@ function showMSVerifyResult(r,ms,e){
   const v=vm[r.verdict]||vm.partial,sc=r.verdict==='pass'?'var(--green)':r.verdict==='fail'?'var(--red)':'var(--amber)';
   document.getElementById('ms-ai-rc').innerHTML=`
     <div style="background:var(--ink3);border-radius:var(--r);padding:16px;border:1px solid var(--border)">
-      <div class="sv-result-header"><div class="sv-icon ${v.cls}">${v.icon}</div><div class="sv-verdict-wrap"><div class="sv-label">SmartVerify\u2122 Verdict</div><div class="sv-verdict ${v.cls}">${v.label}</div>${r.summary?`<div style="font-size:.76rem;color:var(--stone2);margin-top:4px">${r.summary}</div>`:''}</div></div>
+      <div class="sv-result-header"><div class="sv-icon ${v.cls}">${v.icon}</div><div class="sv-verdict-wrap"><div class="sv-label">SmartVerify\u2122 Verdict</div><div class="sv-verdict ${v.cls}">${v.label}</div>${r.summary?`<div style="font-size:.76rem;color:var(--stone2);margin-top:4px">${escapeHtml(r.summary)}</div>`:''}</div></div>
       <div class="sv-score-row"><div style="font-size:.7rem;color:var(--stone);font-weight:600;text-transform:uppercase;letter-spacing:.5px;width:50px">Score</div><div class="sv-score-bar-wrap"><div class="sv-score-bar" style="width:${r.score||0}%;background:${sc}"></div></div><div class="sv-score-pct" style="color:${sc}">${r.score!=null?r.score+'%':''}</div></div>
-      <div class="sv-checks">${(r.items||[]).map(i=>{const ok=i.includes('\u2713'),fail=i.includes('\u2717');return`<div class="sv-check ${ok?'ok':fail?'fail':'warn'}"><span class="sv-check-icon">${ok?'\u2705':fail?'\u274C':'\u26A0\uFE0F'}</span><span>${i}</span></div>`;}).join('')}</div>
-      ${r.note?`<div class="sv-note">\uD83D\uDCA1 ${r.note}</div>`:''}
+      <div class="sv-checks">${(r.items||[]).map(i=>{const ok=i.includes('\u2713'),fail=i.includes('\u2717');return`<div class="sv-check ${ok?'ok':fail?'fail':'warn'}"><span class="sv-check-icon">${ok?'\u2705':fail?'\u274C':'\u26A0\uFE0F'}</span><span>${escapeHtml(i)}</span></div>`;}).join('')}</div>
+      ${r.note?`<div class="sv-note">\uD83D\uDCA1 ${escapeHtml(r.note)}</div>`:''}
     </div>`;
   document.getElementById('ms-ai-rc').style.display='block';
   document.getElementById('ms-verify-btns').style.display='flex';
@@ -6728,7 +6831,7 @@ function openDisputeResponse(id){
   const u=getUser(),e=u.escrows.find(x=>x.id===id);
   if(!e||!e.dispute)return;
   const claim=document.getElementById('dispute-client-claim');
-  if(claim)claim.innerHTML='<strong style="color:var(--orange)">Client claim:</strong> '+e.dispute.desc+(e.dispute.evidence?'<br><a href="'+e.dispute.evidence+'" target="_blank" style="color:var(--blue);font-size:.7rem">View evidence →</a>':'');
+  if(claim)claim.innerHTML='<strong style="color:var(--orange)">Client claim:</strong> '+escapeHtml(e.dispute.desc)+(e.dispute.evidence?'<br><a href="'+escapeHtml(e.dispute.evidence)+'" target="_blank" style="color:var(--blue);font-size:.7rem">View evidence →</a>':'');
   document.getElementById('dispute-response-text').value='';
   document.getElementById('dispute-response-evidence').value='';
   openModal('m-dispute-respond');
@@ -6968,18 +7071,18 @@ function renderDisputesList(){
     return`<div class="dis-card ${sl.cls}" onclick="viewDetail(${e.id})">
       ${needsAction?`<div style="position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 6px var(--amber)"></div>`:''}
       <div class="dis-card-top">
-        <div class="dis-card-job">${e.job}</div>
+        <div class="dis-card-job">${escapeHtml(e.job)}</div>
         <div class="dis-card-amt ${amtCls}">${amt}</div>
       </div>
       <div class="dis-card-meta">
         <span class="dis-badge ${sl.cls}">${sl.text}</span>
         <span class="dis-severity ${sev}">${sevLabel}</span>
-        ${dsp.escalation?`<span class="dis-severity high">🔴 Escalated: ${(dsp.escalation.reason||'').replace(/_/g,' ')}</span>`:''}
+        ${dsp.escalation?`<span class="dis-severity high">🔴 Escalated: ${escapeHtml((dsp.escalation.reason||'').replace(/_/g,' '))}</span>`:''}
       </div>
-      <div class="dis-card-desc">${dsp.desc||'No description'}</div>
+      <div class="dis-card-desc">${escapeHtml(dsp.desc||'No description')}</div>
       ${dsp.freelancerResponse?`<div style="font-size:.68rem;color:var(--stone2);background:var(--ink3);border-radius:var(--r2);padding:6px 10px;margin-bottom:8px">💬 Freelancer responded</div>`:''}
-      ${dsp.aiVerdict?`<div style="font-size:.68rem;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:var(--r2);padding:6px 10px;margin-bottom:8px;color:var(--purple)">✦ AI verdict: ${dsp.aiVerdict.summary}</div>`:''}
-      ${dsp.escalation?.context?`<div style="font-size:.68rem;color:var(--red);background:var(--red-dim);border-radius:var(--r2);padding:6px 10px;margin-bottom:8px;border:1px solid rgba(255,90,90,.2)">🚨 Escalation: ${dsp.escalation.context.slice(0,80)}${dsp.escalation.context.length>80?'…':''}</div>`:''}
+      ${dsp.aiVerdict?`<div style="font-size:.68rem;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:var(--r2);padding:6px 10px;margin-bottom:8px;color:var(--purple)">✦ AI verdict: ${escapeHtml(dsp.aiVerdict.summary)}</div>`:''}
+      ${dsp.escalation?.context?`<div style="font-size:.68rem;color:var(--red);background:var(--red-dim);border-radius:var(--r2);padding:6px 10px;margin-bottom:8px;border:1px solid rgba(255,90,90,.2)">🚨 Escalation: ${escapeHtml(dsp.escalation.context.slice(0,80))}${dsp.escalation.context.length>80?'…':''}</div>`:''}
       <div class="dis-card-footer">
         <div class="dis-card-time">Raised ${raisedDate}${timeLeft?' · '+timeLeft:''}</div>
         <div class="dis-card-btns" onclick="event.stopPropagation()">${actionBtns}</div>
@@ -6995,9 +7098,9 @@ function openEscalation(escId){
   if(!e||!e.dispute)return;
   const amt=escAmtStr(e,4);
   document.getElementById('esc-dispute-summary').innerHTML=
-    `<strong style="color:var(--white)">${e.job}</strong> · <span style="color:${escAmtColor(e)}">${amt}</span><br>
-     <span style="color:var(--orange)">Issue: </span>${e.dispute.desc}
-     ${e.dispute.aiVerdict?`<br><span style="color:var(--purple)">AI verdict: </span>${e.dispute.aiVerdict.summary}`:''}`;
+    `<strong style="color:var(--white)">${escapeHtml(e.job)}</strong> · <span style="color:${escAmtColor(e)}">${amt}</span><br>
+     <span style="color:var(--orange)">Issue: </span>${escapeHtml(e.dispute.desc)}
+     ${e.dispute.aiVerdict?`<br><span style="color:var(--purple)">AI verdict: </span>${escapeHtml(e.dispute.aiVerdict.summary)}`:''}`;
   document.getElementById('esc-reason').value='';
   document.getElementById('esc-context').value='';
   // Pre-fill reason for high-value
@@ -7052,7 +7155,10 @@ const _flActs=(e)=>{
   if(e.status==='disputed')return`<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View \u2696\uFE0F</button>`;
   let a='';
   if(e.status==='locked'){
-    if(e.milestones){const nx=e.milestones.find(m=>m.status==='locked');if(nx)a+=`<button class="abtn abtn-sub" onclick="submitMilestone(${e.id},${nx.id});event.stopPropagation()">\uD83D\uDCE6 M${nx.id}</button>`;
+    const cw=getCancelWindowStatus(e);
+    if(cw.active){
+      a+=`<span class="abtn" style="background:var(--ink3);color:var(--stone);border:1px solid var(--border);cursor:default" title="Client can still cancel — unlocks in ${cw.timeLeft}">⏳ ${cw.timeLeft}</span>`;
+    } else if(e.milestones){const nx=e.milestones.find(m=>m.status==='locked');if(nx)a+=`<button class="abtn abtn-sub" onclick="submitMilestone(${e.id},${nx.id});event.stopPropagation()">\uD83D\uDCE6 M${nx.id}</button>`;
     const lockedMs=e.milestones.filter(m=>m.status==='locked');if(lockedMs.length>=2)a+=`<button class="abtn" style="background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.2)" onclick="openSubmitAll(${e.id});event.stopPropagation()">\uD83D\uDCE6 All</button>`;}
     else a+=`<button class="abtn abtn-sub" onclick="openSubmit(${e.id});event.stopPropagation()">\uD83D\uDCE6 Submit</button>`;
   }
@@ -7070,7 +7176,10 @@ const _flActsM=(e)=>{
   }
   let a='';
   if(e.status==='locked'){
-    if(e.milestones){const nx=e.milestones.find(m=>m.status==='locked');if(nx)a+=`<button class="abtn abtn-sub" style="flex:1;padding:8px 0;display:flex;align-items:center;justify-content:center" onclick="submitMilestone(${e.id},${nx.id});event.stopPropagation()">\uD83D\uDCE6 Submit M${nx.id}</button>`;
+    const cw=getCancelWindowStatus(e);
+    if(cw.active){
+      a+=`<span class="abtn" style="background:var(--ink3);color:var(--stone);border:1px solid var(--border);cursor:default;flex:1;padding:8px 0;display:flex;align-items:center;justify-content:center" title="Client can still cancel — unlocks in ${cw.timeLeft}">⏳ Unlocks in ${cw.timeLeft}</span>`;
+    } else if(e.milestones){const nx=e.milestones.find(m=>m.status==='locked');if(nx)a+=`<button class="abtn abtn-sub" style="flex:1;padding:8px 0;display:flex;align-items:center;justify-content:center" onclick="submitMilestone(${e.id},${nx.id});event.stopPropagation()">\uD83D\uDCE6 Submit M${nx.id}</button>`;
     const lockedMs=e.milestones.filter(m=>m.status==='locked');if(lockedMs.length>=2)a+=`<button class="abtn" style="padding:8px 11px;background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.2)" onclick="openSubmitAll(${e.id});event.stopPropagation()">\uD83D\uDCE6 All</button>`;}
     else a+=`<button class="abtn abtn-sub" style="flex:1;padding:8px 0;display:flex;align-items:center;justify-content:center" onclick="openSubmit(${e.id});event.stopPropagation()">\uD83D\uDCE6 Submit Work</button>`;
   }
@@ -7168,12 +7277,12 @@ const SL_FL={locked:'Job Ready — Start Work',submitted:'Submitted — Awaiting
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
       const mi=e.milestones?` \u00B7 ${e.milestones.filter(m=>m.status==='released').length}/${e.milestones.length} ms`:'';
-      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${e.job}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${mi}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${e.clientName||'Client'}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_flActs(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
+      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${mi}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${escapeHtml(e.clientName||'Client')}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_flActs(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
     }).join(''):noJobs;
     document.getElementById('dash-mt').innerHTML=vis.length?vis.map(e=>{
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
-      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${e.job}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL_FL[e.status]||e.status}</span></div><div style="font-size:.72rem;color:var(--stone);margin-bottom:4px">Client: ${e.clientName||'\u2014'}</div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_flActsM(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
+      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL_FL[e.status]||e.status}</span></div><div style="font-size:.72rem;color:var(--stone);margin-bottom:4px">Client: ${escapeHtml(e.clientName||'\u2014')}</div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_flActsM(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
     }).join(''):noJobs;
 
   } else {
@@ -7190,12 +7299,12 @@ const SL_FL={locked:'Job Ready — Start Work',submitted:'Submitted — Awaiting
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
       const ml=e.milestones?` \u00B7 ${e.milestones.filter(m=>m.status==='released').length}/${e.milestones.length} ms`:'';
-      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${e.job}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${ml}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${e.cur==='usdc'?(e.flEmail||'\u2014'):(s?e.wallet:e.acct)}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_clActs(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
+      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${ml}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${escapeHtml(e.cur==='usdc'?(e.flEmail||'\u2014'):(s?e.wallet:e.acct))}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_clActs(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
     }).join(''):noEsc;
     document.getElementById('dash-mt').innerHTML=vis.length?vis.map(e=>{
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
-      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${e.job}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_clActsM(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
+      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_clActsM(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
     }).join(''):noEsc;
   }
   // Start live dashboard countdowns for all submitted escrows
@@ -7238,7 +7347,7 @@ function viewDetail(id){
   const shareUrl=_base+'?esc='+e.shareId;
     shareBox.innerHTML=`<div class="share-link-box"><span style="font-size:.68rem;color:var(--stone);white-space:nowrap">🔗 Share:</span><span class="share-link-url">${shareUrl}</span><button onclick="copyShareLink('${shareUrl}')" style="background:var(--amber);color:var(--ink);border:none;border-radius:var(--r2);padding:4px 10px;font-size:.66rem;font-weight:600;cursor:pointer;flex-shrink:0">Copy</button></div>`;
   } else if(shareBox){shareBox.innerHTML='';}
-  document.getElementById('det-reqs').innerHTML=(e.reqs||'None').replace(/\n/g,'<br>');
+  document.getElementById('det-reqs').innerHTML=escapeHtml(e.reqs||'None').replace(/\n/g,'<br>');
   document.getElementById('det-pda').textContent=e.pda||'\u2014';
   document.getElementById('det-date').textContent=e.date;
   document.getElementById('det-amt').textContent=escAmtStr(e,4);
@@ -7271,8 +7380,8 @@ function viewDetail(id){
     const _clientEmailDisplay=e.clientEmail||'\u2014';
     document.getElementById('det-client-label').textContent='Client';
     document.getElementById('det-client-val').innerHTML=
-      `<span style="color:var(--white);font-weight:600">${_clientDisplay}</span>`+
-      `<span style="display:block;font-size:.65rem;color:var(--stone);margin-top:2px;font-family:var(--ff-mono)">${_clientEmailDisplay}</span>`;
+      `<span style="color:var(--white);font-weight:600">${escapeHtml(_clientDisplay)}</span>`+
+      `<span style="display:block;font-size:.65rem;color:var(--stone);margin-top:2px;font-family:var(--ff-mono)">${escapeHtml(_clientEmailDisplay)}</span>`;
     document.getElementById('det-fl-label').textContent='Your Wallet';
     document.getElementById('det-fl').textContent=s?e.wallet:e.acct;
     document.getElementById('det-fl').innerHTML+=` <span style="color:var(--green);font-size:.65rem">(you)</span>`;
@@ -7287,9 +7396,9 @@ function viewDetail(id){
     document.getElementById('det-client-val').innerHTML=`7xKp9QmZnR3...3mF2 <span style="color:var(--amber);font-size:.65rem">(you)</span>`;
     document.getElementById('det-fl-label').textContent='Freelancer';
     document.getElementById('det-fl').innerHTML=
-      `<span style="color:var(--white);font-weight:600">${_flDisplay}</span>`+
-      `<span style="display:block;font-size:.65rem;color:var(--stone);margin-top:2px;font-family:var(--ff-mono)">${_flEmailDisplay}</span>`+
-      `<span style="display:block;font-size:.66rem;color:var(--stone2);margin-top:1px">${s?e.wallet:e.acct}</span>`;
+      `<span style="color:var(--white);font-weight:600">${escapeHtml(_flDisplay)}</span>`+
+      `<span style="display:block;font-size:.65rem;color:var(--stone);margin-top:2px;font-family:var(--ff-mono)">${escapeHtml(_flEmailDisplay)}</span>`+
+      `<span style="display:block;font-size:.66rem;color:var(--stone2);margin-top:1px">${escapeHtml(s?e.wallet:e.acct)}</span>`;
   }
 
   const waWrap=document.getElementById('det-wa-wrap');const waEl=document.getElementById('det-wa');
@@ -7299,11 +7408,12 @@ function viewDetail(id){
   const msWrap=document.getElementById('ms-progress-wrap');
   if(e.milestones){
     const _lockedMsCount=e.milestones.filter(m=>m.status==='locked').length;
-    msWrap.innerHTML=`<div class="milestone-progress"><div class="mp-header"><div class="mp-title">\uD83D\uDCCA Milestone Progress</div><div style="display:flex;align-items:center;gap:8px"><div class="mp-progress">${e.milestones.filter(m=>m.status==='released').length}/${e.milestones.length} completed</div>${isFL&&_lockedMsCount>=2?`<button class="abtn" style="background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.2);font-size:.62rem;padding:3px 8px" onclick="openSubmitAll(${e.id})">\uD83D\uDCE6 Submit All</button>`:''}</div></div>${e.milestones.map(m=>{
+    const _cwMs=getCancelWindowStatus(e);
+    msWrap.innerHTML=`<div class="milestone-progress"><div class="mp-header"><div class="mp-title">\uD83D\uDCCA Milestone Progress</div><div style="display:flex;align-items:center;gap:8px"><div class="mp-progress">${e.milestones.filter(m=>m.status==='released').length}/${e.milestones.length} completed</div>${isFL&&_lockedMsCount>=2&&!_cwMs.active?`<button class="abtn" style="background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.2);font-size:.62rem;padding:3px 8px" onclick="openSubmitAll(${e.id})">\uD83D\uDCE6 Submit All</button>`:''}</div></div>${e.milestones.map(m=>{
     let msAct='';
     if(isFL){
-      // Freelancer: can submit locked milestones
-      if(m.status==='locked')msAct=`<button class="abtn abtn-sub" onclick="submitMilestone(${e.id},${m.id})">\uD83D\uDCE6 Submit</button>`;
+      // Freelancer: can submit locked milestones once the cancellation window has closed
+      if(m.status==='locked')msAct=_cwMs.active?`<span class="tag locked" style="font-size:.6rem" title="Client can still cancel — unlocks in ${_cwMs.timeLeft}">⏳ ${_cwMs.timeLeft}</span>`:`<button class="abtn abtn-sub" onclick="submitMilestone(${e.id},${m.id})">\uD83D\uDCE6 Submit</button>`;
       else if(m.status==='submitted')msAct=`<span class="tag submitted" style="font-size:.6rem">Awaiting payment</span>`;
       else msAct=`<span class="tag released" style="font-size:.6rem">\u2705 Paid</span>`;
     } else {
@@ -7312,7 +7422,7 @@ function viewDetail(id){
       else if(m.status==='submitted')msAct=`<div style="display:flex;gap:5px;align-items:center"><button class="abtn abtn-rel" onclick="releaseMilestone(${e.id},${m.id})">\u2705 Pay</button><button class="abtn" style="background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.2);font-size:.58rem;padding:3px 7px" onclick="openMilestoneVerify(${e.id},${m.id})">\u2726 Review</button></div>`;
       else msAct=`<span class="tag released" style="font-size:.6rem">\u2705 Paid</span>`;
     }
-    return`<div class="milestone-row"><div class="mr-num">${m.id}</div><div class="mr-info"><div class="mr-name">${m.name}</div><div class="mr-amt">${s?m.amount.toFixed(2)+' SOL':'\u20A6'+fmt(m.amount)}</div></div><div class="mr-actions">${msAct}</div></div>`;}).join('')}</div>`;}
+    return`<div class="milestone-row"><div class="mr-num">${m.id}</div><div class="mr-info"><div class="mr-name">${escapeHtml(m.name)}</div><div class="mr-amt">${s?m.amount.toFixed(2)+' SOL':'\u20A6'+fmt(m.amount)}</div></div><div class="mr-actions">${msAct}</div></div>`;}).join('')}</div>`;}
   else msWrap.innerHTML='';
   // Submission
   const sc=document.getElementById('submission-card');
@@ -7333,13 +7443,13 @@ function viewDetail(id){
     if(dsp.aiVerdict){
       const v=dsp.aiVerdict;
       const vc=v.verdict==='release_full'?'var(--green)':v.verdict==='refund_full'?'var(--red)':'var(--amber)';
-      verdictBox=`<div style="margin-top:10px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:var(--r2);padding:12px"><div style="font-size:.65rem;color:var(--purple);font-weight:600;letter-spacing:1px;margin-bottom:6px">✦ SMARTVERIFY™ ARBITRATION VERDICT</div><div style="font-size:.78rem;font-weight:700;color:${vc};margin-bottom:4px">${v.summary}</div><div style="font-size:.71rem;color:var(--stone2);line-height:1.5">${v.reasoning}</div>${dsp.status!=='resolved'?`<button class="btn btn-a" style="width:100%;margin-top:10px;font-size:.78rem" onclick="executeArbitration(${e.id})">Accept & Execute Verdict</button>`:''}</div>`;
+      verdictBox=`<div style="margin-top:10px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:var(--r2);padding:12px"><div style="font-size:.65rem;color:var(--purple);font-weight:600;letter-spacing:1px;margin-bottom:6px">✦ SMARTVERIFY™ ARBITRATION VERDICT</div><div style="font-size:.78rem;font-weight:700;color:${vc};margin-bottom:4px">${escapeHtml(v.summary)}</div><div style="font-size:.71rem;color:var(--stone2);line-height:1.5">${escapeHtml(v.reasoning)}</div>${dsp.status!=='resolved'?`<button class="btn btn-a" style="width:100%;margin-top:10px;font-size:.78rem" onclick="executeArbitration(${e.id})">Accept & Execute Verdict</button>`:''}</div>`;
     }
     let responseBox='';
     if(dsp.freelancerResponse){
-      responseBox=`<div style="margin-top:8px;background:var(--ink3);border-radius:var(--r2);padding:10px 12px"><div style="font-size:.65rem;color:var(--stone);font-weight:600;margin-bottom:4px">FREELANCER RESPONSE</div><div style="font-size:.74rem;color:var(--stone2);line-height:1.5">${dsp.freelancerResponse.text}</div>${dsp.freelancerResponse.evidence?`<a href="${dsp.freelancerResponse.evidence}" target="_blank" style="font-size:.68rem;color:var(--blue)">View evidence →</a>`:''}</div>`;
+      responseBox=`<div style="margin-top:8px;background:var(--ink3);border-radius:var(--r2);padding:10px 12px"><div style="font-size:.65rem;color:var(--stone);font-weight:600;margin-bottom:4px">FREELANCER RESPONSE</div><div style="font-size:.74rem;color:var(--stone2);line-height:1.5">${escapeHtml(dsp.freelancerResponse.text)}</div>${dsp.freelancerResponse.evidence?`<a href="${escapeHtml(dsp.freelancerResponse.evidence)}" target="_blank" style="font-size:.68rem;color:var(--blue)">View evidence →</a>`:''}</div>`;
     }
-    dcw.innerHTML=`<div class="dispute-banner"><div class="db-header"><div class="db-icon">⚖️</div><div style="flex:1"><div class="db-title">${statusLabel}</div><div class="db-sub">Raised ${new Date(dsp.raisedAt).toLocaleDateString()}</div></div></div><div class="db-body"><strong style="color:var(--white)">Reason:</strong> ${dsp.reason.replace(/_/g,' ')}<br><strong style="color:var(--white)">Client claim:</strong> ${dsp.desc}${dsp.evidence?`<br><a href="${dsp.evidence}" target="_blank" style="color:var(--blue);font-size:.72rem">Client evidence →</a>`:''}</div>${responseBox}${verdictBox}${respondBtn}<div class="db-countdown"><span>⏱</span><div><div class="db-timer">${timeLeft}</div><div style="font-size:.68rem;color:var(--stone)">${dsp.status==='awaiting_response'?'Freelancer response deadline':'Arbitration window'}</div></div></div></div>`;
+    dcw.innerHTML=`<div class="dispute-banner"><div class="db-header"><div class="db-icon">⚖️</div><div style="flex:1"><div class="db-title">${statusLabel}</div><div class="db-sub">Raised ${new Date(dsp.raisedAt).toLocaleDateString()}</div></div></div><div class="db-body"><strong style="color:var(--white)">Reason:</strong> ${escapeHtml(dsp.reason.replace(/_/g,' '))}<br><strong style="color:var(--white)">Client claim:</strong> ${escapeHtml(dsp.desc)}${dsp.evidence?`<br><a href="${escapeHtml(dsp.evidence)}" target="_blank" style="color:var(--blue);font-size:.72rem">Client evidence →</a>`:''}</div>${responseBox}${verdictBox}${respondBtn}<div class="db-countdown"><span>⏱</span><div><div class="db-timer">${timeLeft}</div><div style="font-size:.68rem;color:var(--stone)">${dsp.status==='awaiting_response'?'Freelancer response deadline':'Arbitration window'}</div></div></div></div>`;
   } else dcw.innerHTML='';
 
   // TX log
@@ -7362,18 +7472,27 @@ function viewDetail(id){
   if(isFL){
     // FREELANCER view
     if(e.status==='locked'){
+      const _cwFL=getCancelWindowStatus(e);
       if(e.milestones){
         const nextMs=e.milestones.find(m=>m.status==='locked');
         const doneMs=e.milestones.filter(m=>m.status==='released').length;
         const lockedMsCount=e.milestones.filter(m=>m.status==='locked').length;
+        if(_cwFL.active){
+          acts=cancelWindowBannerHTML(e,true)+`<div style="background:var(--blue-dim);border:1px solid rgba(91,139,245,.2);border-radius:var(--r2);padding:11px 14px;font-size:.77rem;color:var(--stone2)">\uD83D\uDCCA <strong style="color:var(--white)">${doneMs}/${e.milestones.length} milestones paid.</strong> You'll be able to submit the next one once the cancellation window closes.</div>`;
+        } else {
         acts=nextMs
           ?`<div style="background:var(--blue-dim);border:1px solid rgba(91,139,245,.2);border-radius:var(--r2);padding:11px 14px;margin-bottom:8px;font-size:.77rem;color:var(--stone2)">\uD83D\uDCCA <strong style="color:var(--white)">${doneMs}/${e.milestones.length} milestones paid.</strong> Submit the next one when ready.</div>
-          <button class="btn btn-p" onclick="submitMilestone(${e.id},${nextMs.id})">\uD83D\uDCE6 Submit Milestone ${nextMs.id}: ${nextMs.name}</button>
+          <button class="btn btn-p" onclick="submitMilestone(${e.id},${nextMs.id})">\uD83D\uDCE6 Submit Milestone ${nextMs.id}: ${escapeHtml(nextMs.name)}</button>
           ${lockedMsCount>=2?`<button class="btn" style="background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);width:100%;justify-content:center;margin-top:4px" onclick="openSubmitAll(${e.id})">\uD83D\uDCE6 Submit All ${lockedMsCount} Remaining Milestones At Once</button>`:''}`
           :`<div style="text-align:center;background:var(--blue-dim);border:1px solid rgba(91,139,245,.2);border-radius:var(--r2);padding:13px"><div style="font-size:.79rem;color:var(--blue);font-weight:600">All milestones submitted</div><div style="font-size:.69rem;color:var(--stone);margin-top:2px">Awaiting client payment</div></div>`;
+        }
       } else {
+        if(_cwFL.active){
+          acts=cancelWindowBannerHTML(e,true);
+        } else {
         acts=cancelWindowBannerHTML(e,true)+`<button class="btn btn-p" onclick="openSubmit(${e.id})">\uD83D\uDCE6 Submit Your Work</button>
         <div style="background:var(--amber-dim);border:1px solid rgba(245,166,35,.2);border-radius:var(--r2);padding:10px 13px;font-size:.75rem;color:var(--stone2);line-height:1.5">\u23F1 Once submitted, client has 24 hours to review before funds auto-release to you.</div>`;
+        }
       }
     }
     else if(e.status==='submitted'){
@@ -7400,15 +7519,18 @@ function viewDetail(id){
       if(e.milestones){
         const nextPay=e.milestones.find(m=>m.status==='submitted');
         const doneMs=e.milestones.filter(m=>m.status==='released').length;
-        acts=nextPay
-          ?`<div style="background:var(--green-dim);border:1px solid rgba(45,212,160,.2);border-radius:var(--r2);padding:11px 14px;margin-bottom:8px;font-size:.77rem;color:var(--stone2)">\uD83D\uDCE6 <strong style="color:var(--white)">Milestone ${nextPay.id} delivered:</strong> "${nextPay.name}" \u2014 ready for payment.</div>
+        const _cwMsCl=getCancelWindowStatus(e);
+        const _waiveBtnMs=_cwMsCl.active?`<button class="btn btn-o" style="width:100%;justify-content:center;margin-top:6px;font-size:.76rem" onclick="confirmWaiveCancelWindow(${e.id})">\u26A1 Urgent \u2014 Let Freelancer Start Now</button>`:'';
+        acts=(_cwMsCl.active?cancelWindowBannerHTML(e,false):'')+(nextPay
+          ?`<div style="background:var(--green-dim);border:1px solid rgba(45,212,160,.2);border-radius:var(--r2);padding:11px 14px;margin-bottom:8px;font-size:.77rem;color:var(--stone2)">\uD83D\uDCE6 <strong style="color:var(--white)">Milestone ${nextPay.id} delivered:</strong> "${escapeHtml(nextPay.name)}" \u2014 ready for payment.</div>
           <button class="btn btn-p" onclick="openAIVerify(${e.id})">\u2726 SmartVerify\u2122 Report</button>
           <button class="btn btn-gr" onclick="releaseMilestone(${e.id},${nextPay.id})">\u2705 Pay Milestone ${nextPay.id}</button>
           <button class="btn btn-o" onclick="openDispute(${e.id})">\u2696\uFE0F Raise Dispute</button>`
-          :`<div style="background:var(--blue-dim);border:1px solid rgba(91,139,245,.2);border-radius:var(--r2);padding:11px 14px;font-size:.77rem;color:var(--stone2)">\uD83D\uDCCA <strong style="color:var(--white)">${doneMs}/${e.milestones.length} milestones paid.</strong> Waiting for freelancer to submit next milestone.</div>`;
+          :`<div style="background:var(--blue-dim);border:1px solid rgba(91,139,245,.2);border-radius:var(--r2);padding:11px 14px;font-size:.77rem;color:var(--stone2)">\uD83D\uDCCA <strong style="color:var(--white)">${doneMs}/${e.milestones.length} milestones paid.</strong> Waiting for freelancer to submit next milestone.</div>`)+_waiveBtnMs;
       } else {
         const _cw=getCancelWindowStatus(e);
-        acts=cancelWindowBannerHTML(e,false)+`<button class="btn btn-gr" onclick="openRelease(${e.id})">\u2705 Release Payment</button>\n        ${!_cw.expired?`<button class="btn btn-r" style="font-size:.76rem;padding:9px;justify-content:center" onclick="openCancelEscrow(${e.id})">Cancel Escrow</button>`:''}`;
+        const _waiveBtn=_cw.active?`<button class="btn btn-o" style="width:100%;justify-content:center;margin-top:6px;font-size:.76rem" onclick="confirmWaiveCancelWindow(${e.id})">\u26A1 Urgent \u2014 Let Freelancer Start Now</button>`:'';
+        acts=cancelWindowBannerHTML(e,false)+`<button class="btn btn-gr" onclick="openRelease(${e.id})">\u2705 Release Payment</button>\n        ${!_cw.expired?`<button class="btn btn-r" style="font-size:.76rem;padding:9px;justify-content:center" onclick="openCancelEscrow(${e.id})">Cancel Escrow</button>`:''}`+_waiveBtn;
       }
     }
     else if(e.status==='submitted'){
@@ -7450,7 +7572,7 @@ function viewDetail(id){
   goTo('s-detail');
 }
 
-function renderSVInline(r){const vm={pass:'\u2705 REQUIREMENTS MET',partial:'\u26A0\uFE0F PARTIALLY MET',fail:'\u274C NOT MET'};const sc=r.verdict==='pass'?'var(--green)':r.verdict==='fail'?'var(--red)':'var(--amber)';return`<div style="margin-top:11px"><div class="sv-badge">\u2726 SmartVerify\u2122 Result</div><div class="ai-result ${r.verdict}" style="border-radius:var(--r2);padding:13px;margin:8px 0;border:1px solid;border-color:${r.verdict==='pass'?'rgba(45,212,160,.2)':r.verdict==='fail'?'rgba(255,90,90,.2)':'rgba(245,166,35,.2)'}"><div style="font-family:var(--ff-head);font-size:1.1rem;color:${sc};margin-bottom:5px">${vm[r.verdict]}</div><div style="font-size:.77rem;color:var(--stone2)">${r.summary||''}</div></div></div>`;}
+function renderSVInline(r){const vm={pass:'\u2705 REQUIREMENTS MET',partial:'\u26A0\uFE0F PARTIALLY MET',fail:'\u274C NOT MET'};const sc=r.verdict==='pass'?'var(--green)':r.verdict==='fail'?'var(--red)':'var(--amber)';return`<div style="margin-top:11px"><div class="sv-badge">\u2726 SmartVerify\u2122 Result</div><div class="ai-result ${r.verdict}" style="border-radius:var(--r2);padding:13px;margin:8px 0;border:1px solid;border-color:${r.verdict==='pass'?'rgba(45,212,160,.2)':r.verdict==='fail'?'rgba(255,90,90,.2)':'rgba(245,166,35,.2)'}"><div style="font-family:var(--ff-head);font-size:1.1rem;color:${sc};margin-bottom:5px">${vm[r.verdict]}</div><div style="font-size:.77rem;color:var(--stone2)">${escapeHtml(r.summary||'')}</div></div></div>`;}
 
 // -- CANCEL ESCROW --
 // -- SMART CANCEL --
@@ -7606,7 +7728,7 @@ function openDeleteEscrow(id) {
   document.getElementById('del-esc-body').textContent =
     'You are about to permanently delete the record for "' + e.job + '". This cannot be undone.';
   document.getElementById('del-esc-detail').innerHTML =
-    '<strong style="color:var(--white)">' + e.job + '</strong><br>' +
+    '<strong style="color:var(--white)">' + escapeHtml(e.job) + '</strong><br>' +
     '<span style="color:var(--stone2)">' + amt + ' \u00B7 ' +
     (e.status === 'released' ? '\u2705 Completed' : '\uD83D\uDEAB Cancelled') + ' \u00B7 ' + e.date + '</span>';
   openModal('m-delete-escrow');
@@ -7669,7 +7791,7 @@ function showReceipt(e, forceRole){
   const _rstamp=document.getElementById('rcpt-stamp');
   if(_rstamp){_rstamp.textContent=isFL?'RECEIVED':'PAID';_rstamp.className='receipt-stamp'+(isFL?' fl':'');}
   document.getElementById('rcpt-rows').innerHTML=rows.map(r=>
-    `<div class="receipt-row"><span class="receipt-row-label">${r.label}</span><span class="receipt-row-val">${r.val}</span></div>`
+    `<div class="receipt-row"><span class="receipt-row-label">${escapeHtml(r.label)}</span><span class="receipt-row-val">${escapeHtml(String(r.val))}</span></div>`
   ).join('');
   const sv=e.aiResult?e.aiResult.score+'%':'Not run';
   document.getElementById('rcpt-sv-score').textContent=sv;
@@ -7689,7 +7811,7 @@ function copyReceipt(){
 function doRelease(){const u=getUser(),e=u.escrows.find(x=>x.id===pendingRelId);if(!e)return;e.status='released';e.autoReleaseAt=null;if(e.cur==='ngn'){u.ngnBalance+=e.amtNgn;u.usdcBalance=(u.usdcBalance||0)+ngnToUsdc(e.amtNgn);u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:ngnToUsdc(e.amtNgn),cur:'usdc'});}else if(e.cur==='usdc'){u.usdcBalance=(u.usdcBalance||0)+e.amount;u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:e.amount,cur:'usdc'});}saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);closeModal('m-release');renderDash();renderNaira();pushNotif('release','Payment Released',e.job,e.id);sendWA(`\u2705 Payment released for "${e.job.slice(0,30)}"! Funds sent to freelancer.`);showToast(e.cur==='usdc'?'\u2705 $'+e.amount.toFixed(2)+' released!':e.cur==='sol'?'\u2705 SOL released!':'\u2705 \u20A6'+fmt(e.amtNgn)+' released!');setTimeout(()=>showReceipt(e,'client'),400);}
 
 // -- NAIRA --
-function renderNaira(){const u=getUser();if(!u)return;const usdcBal=u.usdcBalance||0;document.getElementById('usdc-bal').textContent='$'+usdcBal.toFixed(2)+' USDC';document.getElementById('usdc-bal-sub').textContent=usdcBal>0?'≈ ₦'+fmt(usdcToNgn(usdcBal))+' · Available to withdraw or lock':'Fund your wallet to get started';document.getElementById('vacct-name').textContent=u.fname+' '+u.lname;document.getElementById('wavail').textContent='$'+usdcBal.toFixed(2)+' USDC (≈₦'+fmt(usdcToNgn(usdcBal))+')';document.getElementById('fund-email').value=u.email;const ne=u.escrows.filter(e=>e.cur==='ngn');document.getElementById('ngn-esc-list').innerHTML=ne.length?ne.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);gap:9px"><div style="min-width:0;flex:1"><div style="font-size:.81rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.job}</div><div style="font-size:.66rem;color:var(--stone)">${e.date}</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0"><div style="font-family:var(--ff-head);font-size:.86rem;color:var(--naira)">₦${fmt(e.amtNgn)}</div><span class="tag ${e.status}">${{locked:'Locked',submitted:'Submitted',disputed:'Disputed',released:'Released'}[e.status]}</span>${e.status==='locked'?`<button class="abtn abtn-rel" onclick="openRelease(${e.id})">Release</button>`:''}</div></div>`).join(''):'<div style="padding:22px;text-align:center;color:var(--stone);font-size:.78rem">No Fiat escrows yet.</div>';document.getElementById('tx-list').innerHTML=u.txHistory.slice(0,6).map(t=>`<div class="tx-item"><div class="tx-ico ${t.amt>0?'in':t.type==='lock'?'lock':'out'}">${t.amt>0?'⬇':t.type==='lock'?'🔒':'⬆'}</div><div style="flex:1;min-width:0"><div class="tx-name">${t.name}</div><div class="tx-date" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.sub}</div></div><div class="tx-amt ${t.amt>0?'pos':t.type==='lock'?'locked':'neg'}">${t.amt>0?'+':''}${t.cur==='usdc'?'$'+Math.abs(t.amt).toFixed(2):'₦'+fmt(Math.abs(t.amt))}</div></div>`).join('');const wnd=document.getElementById('wa-number-display');if(wnd)wnd.textContent=u.waNumber||'Not set';const wag=document.getElementById('wa-global');if(wag&&u.waNumber)wag.value=u.waNumber.replace('+','');}
+function renderNaira(){const u=getUser();if(!u)return;const usdcBal=u.usdcBalance||0;document.getElementById('usdc-bal').textContent='$'+usdcBal.toFixed(2)+' USDC';document.getElementById('usdc-bal-sub').textContent=usdcBal>0?'≈ ₦'+fmt(usdcToNgn(usdcBal))+' · Available to withdraw or lock':'Fund your wallet to get started';document.getElementById('vacct-name').textContent=u.fname+' '+u.lname;document.getElementById('wavail').textContent='$'+usdcBal.toFixed(2)+' USDC (≈₦'+fmt(usdcToNgn(usdcBal))+')';document.getElementById('fund-email').value=u.email;const ne=u.escrows.filter(e=>e.cur==='ngn');document.getElementById('ngn-esc-list').innerHTML=ne.length?ne.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);gap:9px"><div style="min-width:0;flex:1"><div style="font-size:.81rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.job)}</div><div style="font-size:.66rem;color:var(--stone)">${e.date}</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0"><div style="font-family:var(--ff-head);font-size:.86rem;color:var(--naira)">₦${fmt(e.amtNgn)}</div><span class="tag ${e.status}">${{locked:'Locked',submitted:'Submitted',disputed:'Disputed',released:'Released'}[e.status]}</span>${e.status==='locked'?`<button class="abtn abtn-rel" onclick="openRelease(${e.id})">Release</button>`:''}</div></div>`).join(''):'<div style="padding:22px;text-align:center;color:var(--stone);font-size:.78rem">No Fiat escrows yet.</div>';document.getElementById('tx-list').innerHTML=u.txHistory.slice(0,6).map(t=>`<div class="tx-item"><div class="tx-ico ${t.amt>0?'in':t.type==='lock'?'lock':'out'}">${t.amt>0?'⬇':t.type==='lock'?'🔒':'⬆'}</div><div style="flex:1;min-width:0"><div class="tx-name">${escapeHtml(t.name)}</div><div class="tx-date" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.sub)}</div></div><div class="tx-amt ${t.amt>0?'pos':t.type==='lock'?'locked':'neg'}">${t.amt>0?'+':''}${t.cur==='usdc'?'$'+Math.abs(t.amt).toFixed(2):'₦'+fmt(Math.abs(t.amt))}</div></div>`).join('');const wnd=document.getElementById('wa-number-display');if(wnd)wnd.textContent=u.waNumber||'Not set';const wag=document.getElementById('wa-global');if(wag&&u.waNumber)wag.value=u.waNumber.replace('+','');}
 
 // -- WITHDRAW --
 let wdAN='',wdBN='',wdOK=false;
@@ -8142,8 +8264,8 @@ function openNotifs(){
       return `<div class="notif-item${n.read?'':' unread'}" onclick="markNotifRead(${n.id})${n.escId?`;viewDetail(${n.escId});closeModal('m-notifs')`:''}">
         <div class="notif-ico ${n.type}">${icons[n.type]||'\u2139\ufe0f'}</div>
         <div class="notif-body">
-          <div class="notif-title">${n.title}</div>
-          <div class="notif-desc">${n.desc}</div>
+          <div class="notif-title">${escapeHtml(n.title)}</div>
+          <div class="notif-desc">${escapeHtml(n.desc)}</div>
           <div class="notif-time">${ago}</div>
         </div>
       </div>`;
@@ -9063,15 +9185,15 @@ function renderReviewCard(r){
     <div class="review-hd">
       <div class="review-author">
         <div class="review-av" style="background:${col}22;border-color:${col}">${initials}</div>
-        <div><div class="review-name">${r.byName||'Anonymous'}</div><div class="review-role">${r.byRole||''}</div></div>
+        <div><div class="review-name">${escapeHtml(r.byName||'Anonymous')}</div><div class="review-role">${escapeHtml(r.byRole||'')}</div></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
         <div class="rating-stars readonly">${stars}</div>
         <div class="review-date">${ago}</div>
       </div>
     </div>
-    ${r.text?`<div class="review-body">"${r.text}"</div>`:''}
-    ${r.job?`<div><span class="review-job">📋 ${r.job.slice(0,40)}${r.job.length>40?'…':''}</span></div>`:''}
+    ${r.text?`<div class="review-body">"${escapeHtml(r.text)}"</div>`:''}
+    ${r.job?`<div><span class="review-job">📋 ${escapeHtml(r.job.slice(0,40))}${r.job.length>40?'…':''}</span></div>`:''}
   </div>`;
 }
 
@@ -9252,22 +9374,22 @@ function renderPublicProfile(profileId){
 
   el.innerHTML=`
     <div class="pub-profile-hero">
-      <div class="pub-av" style="background:${col}22;border-color:${col}">${initials}</div>
-      <div class="pub-name">${(u.fname||'')+' '+(u.lname||'')}</div>
+      <div class="pub-av" style="background:${col}22;border-color:${col}">${escapeHtml(initials)}</div>
+      <div class="pub-name">${escapeHtml((u.fname||'')+' '+(u.lname||''))}</div>
       <div class="pub-role-badge ${u.role}" style="background:${col}22;color:${col};border:1px solid ${col}44">
         ${u.role==='client'?'👤 Client':u.role==='freelancer'?'💻 Freelancer':'🔄 Client & Freelancer'}
       </div>
       ${u.availability?`<div class="pub-avail ${u.availability==='open'?'open':'busy'}"><span class="pub-avail-dot"></span>${u.availability==='open'?'Available for work':'Not available right now'}</div>`:''}
       ${avg?`<div class="review-avg-badge" style="margin-top:8px">⭐ ${avg} <span style="font-size:.65rem;color:var(--stone);font-weight:400">/ 5</span></div>`:''}
-      ${u.bio?`<div class="pub-bio">${u.bio}</div>`:''}
-      ${u.skills?`<div class="pub-skills">${u.skills.split(',').map(s=>`<span class="pub-skill">${s.trim()}</span>`).join('')}</div>`:''}
+      ${u.bio?`<div class="pub-bio">${escapeHtml(u.bio)}</div>`:''}
+      ${u.skills?`<div class="pub-skills">${u.skills.split(',').map(s=>`<span class="pub-skill">${escapeHtml(s.trim())}</span>`).join('')}</div>`:''}
       <div class="pub-stats" style="margin-top:12px">
         <div class="pub-stat"><div class="pub-stat-v">${completed}</div><div class="pub-stat-l">Completed</div></div>
         <div class="pub-stat"><div class="pub-stat-v">${reviews.length}</div><div class="pub-stat-l">Reviews</div></div>
         ${avg?`<div class="pub-stat"><div class="pub-stat-v" style="color:var(--amber)">${avg}</div><div class="pub-stat-l">Avg Rating</div></div>`:''}
       </div>
     </div>
-    ${u.portfolioUrl?`<a class="pub-portfolio" href="${u.portfolioUrl}" target="_blank" rel="noopener"><span class="pub-portfolio-ico">🔗</span><div><div style="font-size:.76rem;font-weight:600">Portfolio / GitHub</div><div class="pub-portfolio-link">${u.portfolioUrl}</div></div></a>`:''}
+    ${u.portfolioUrl&&/^https?:\/\//i.test(u.portfolioUrl)?`<a class="pub-portfolio" href="${escapeHtml(u.portfolioUrl)}" target="_blank" rel="noopener noreferrer"><span class="pub-portfolio-ico">🔗</span><div><div style="font-size:.76rem;font-weight:600">Portfolio / GitHub</div><div class="pub-portfolio-link">${escapeHtml(u.portfolioUrl)}</div></div></a>`:''}
 
     ${reviews.length?`
     <div class="card" style="margin-bottom:14px">
@@ -9278,7 +9400,7 @@ function renderPublicProfile(profileId){
     </div>`:'<div style="text-align:center;padding:24px;color:var(--stone);font-size:.82rem">No reviews yet.</div>'}
 
     <div style="text-align:center;padding:20px 0 8px">
-      <button class="btn btn-a" style="padding:12px 28px;font-size:.9rem" onclick="goTo('s-auth')">🔐 Work with ${u.fname||'them'} on Trustana</button>
+      <button class="btn btn-a" style="padding:12px 28px;font-size:.9rem" onclick="goTo('s-auth')">🔐 Work with ${escapeHtml(u.fname||'them')} on Trustana</button>
       <div style="font-size:.7rem;color:var(--stone);margin-top:10px">Payments secured · AI-verified · Dispute protected</div>
     </div>
   `;
@@ -9845,7 +9967,7 @@ async function processUploadedFile(file){
   return {dataUrl,mediaType:file.type||'application/octet-stream',name:file.name};
 }
 function dataUrlToBase64(dataUrl){return (dataUrl||'').split(',')[1]||'';}
-function fileBadge(name){return '\uD83D\uDCCE '+(name||'attached file');}
+function fileBadge(name){return '\uD83D\uDCCE '+escapeHtml(name||'attached file');}
 
 // ── Inject a file-upload field into the single/milestone submit modal ──
 function ensureSubmitFileField(){
@@ -9869,7 +9991,7 @@ function ensureSubmitFileField(){
     try{
       const processed=await processUploadedFile(f);
       this._processed=processed;
-      prev.innerHTML=processed.mediaType.startsWith('image/')?`<img src="${processed.dataUrl}" style="max-width:90px;border-radius:6px;display:block;margin-top:4px"/><span>${f.name}</span>`:`${fileBadge(f.name)}`;
+      prev.innerHTML=processed.mediaType.startsWith('image/')?`<img src="${processed.dataUrl}" style="max-width:90px;border-radius:6px;display:block;margin-top:4px"/><span>${escapeHtml(f.name)}</span>`:`${fileBadge(f.name)}`;
     }catch(err){prev.textContent='\u26A0\uFE0F '+err.message;this._processed=null;}
   });
 }
@@ -10002,7 +10124,11 @@ window.callClaudeMilestone=async function(e,ms){
 
 // ── Submission flow overrides: accept a link OR an uploaded file ──
 const _origOpenSubmit=window.openSubmit;
-window.openSubmit=function(id){_origOpenSubmit(id);resetSubmitFileField();};
+window.openSubmit=function(id){
+  const u=getUser(),e=u&&u.escrows.find(x=>x.id===id);
+  if(e){const cw=getCancelWindowStatus(e);if(cw.active){showToast('Client can still cancel — you can submit once the window closes ('+cw.timeLeft+' left)',true);return;}}
+  _origOpenSubmit(id);resetSubmitFileField();
+};
 
 window.submitWork=async function(){
   const link=document.getElementById('sub-link-inp').value.trim(),notes=document.getElementById('sub-notes-inp').value.trim();
@@ -10026,6 +10152,8 @@ window.submitWork=async function(){
 };
 
 window.submitMilestone=function(escId,msId){
+  const u0=getUser(),e0=u0&&u0.escrows.find(x=>x.id===escId);
+  if(e0){const cw=getCancelWindowStatus(e0);if(cw.active){showToast('Client can still cancel — you can submit once the window closes ('+cw.timeLeft+' left)',true);return;}}
   activeEscId=escId;
   document.getElementById('sub-link-inp').value='';document.getElementById('sub-notes-inp').value='';
   resetSubmitFileField();
@@ -10053,9 +10181,11 @@ window.doMilestoneSubmit=function(escId,msId){
 };
 
 window.openSubmitAll=function(escId){
-  activeEscId=escId;
   const u=getUser(),e=u.escrows.find(x=>x.id===escId);
   if(!e||!e.milestones)return;
+  const cw=getCancelWindowStatus(e);
+  if(cw.active){showToast('Client can still cancel — you can submit once the window closes ('+cw.timeLeft+' left)',true);return;}
+  activeEscId=escId;
   const locked=e.milestones.filter(m=>m.status==='locked');
   if(locked.length<2){submitMilestone(escId,locked[0].id);return;}
   const s=e.cur==='sol';
@@ -10067,7 +10197,7 @@ window.openSubmitAll=function(escId){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div>
           <span style="font-family:var(--ff-mono);font-size:.65rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.5px">Milestone ${m.id}</span>
-          <div style="font-size:.84rem;font-weight:600;color:var(--white);margin-top:2px">${m.name}</div>
+          <div style="font-size:.84rem;font-weight:600;color:var(--white);margin-top:2px">${escapeHtml(m.name)}</div>
         </div>
         <span style="font-family:var(--ff-head);font-size:.9rem;color:${msColor}">${msAmt(m)}</span>
       </div>
