@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2316,6 +2317,56 @@ select option{background:var(--ink3)}
 .notif-desc{font-size:.71rem;color:var(--stone2);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 120px)}
 .notif-time{font-size:.63rem;color:var(--stone);margin-top:3px;font-family:var(--ff-mono)}
 @keyframes svPulse{0%,80%,100%{transform:scale(0.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* ── TRUST BUDDY CHATBOT ── */
+.tb-fab{position:fixed;right:20px;bottom:20px;z-index:9000;width:56px;height:56px;border-radius:16px;background:var(--ink);border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.5);transition:transform var(--trans)}
+.tb-fab:hover{transform:scale(1.06)}
+.tb-fab-dot{position:absolute;top:2px;right:2px;width:12px;height:12px;background:var(--green);border-radius:50%;border:2px solid var(--ink)}
+.tb-panel{position:fixed;right:20px;bottom:88px;z-index:9000;width:min(360px,calc(100vw - 32px));max-height:min(560px,calc(100vh - 120px));background:var(--ink2);border:1px solid rgba(168,85,247,.3);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:none;flex-direction:column;overflow:hidden}
+.tb-panel.open{display:flex;animation:sIn .22s ease}
+.tb-head{display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,rgba(168,85,247,.15),rgba(91,139,245,.1));border-bottom:1px solid var(--border);flex-shrink:0}
+.tb-fab-logo{width:26px;height:26px;background:var(--amber);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);filter:drop-shadow(0 2px 6px var(--amber-glow))}
+.tb-head-ico{width:34px;height:34px;border-radius:10px;background:var(--ink);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tb-head-ico .tb-fab-logo{width:17px;height:17px}
+.tb-head-name{font-family:var(--ff-head);font-size:.85rem;letter-spacing:.6px;color:var(--white)}
+.tb-head-sub{font-size:.65rem;color:var(--green);display:flex;align-items:center;gap:4px}
+.tb-head-sub-dot{width:6px;height:6px;background:var(--green);border-radius:50%}
+.tb-close{margin-left:auto;background:none;border:none;color:var(--stone);font-size:1rem;cursor:pointer;padding:4px 6px;border-radius:var(--r2)}
+.tb-close:hover{background:rgba(255,255,255,.06);color:var(--white)}
+.tb-body{flex:1;overflow-y:auto;overflow-anchor:none;scroll-behavior:smooth;padding:14px 14px 6px;display:flex;flex-direction:column;gap:10px;min-height:200px}
+@keyframes tbRise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.tb-body .chat-msg,.tb-body .tb-quick-wrap,.tb-body .tb-handoff,.tb-body .tb-typing{animation:tbRise .32s cubic-bezier(.2,.8,.2,1) both}
+.tb-body .tb-quick-wrap .tb-quick{animation:tbRise .28s cubic-bezier(.2,.8,.2,1) both}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(1){animation-delay:.02s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(2){animation-delay:.06s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(3){animation-delay:.10s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(4){animation-delay:.14s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(5){animation-delay:.18s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(6){animation-delay:.22s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(7){animation-delay:.26s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(8){animation-delay:.30s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(9){animation-delay:.34s}
+.tb-quick-wrap{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px;align-items:flex-start}
+.tb-quick{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(168,85,247,.3);border-radius:100px;padding:7px 13px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:var(--ff-ui);text-align:left;transition:background var(--trans)}
+.tb-quick:hover{background:var(--purple);color:var(--white)}
+.tb-quick.tb-human{background:var(--amber-dim);color:var(--amber);border-color:rgba(245,166,35,.3)}
+.tb-quick.tb-human:hover{background:var(--amber);color:var(--ink)}
+.tb-typing{align-self:flex-start;display:flex;gap:4px;padding:10px 13px;background:var(--ink3);border-radius:14px;border-bottom-left-radius:4px}
+.tb-typing span{width:5px;height:5px;border-radius:50%;background:var(--stone2);animation:svPulse 1.2s ease-in-out infinite}
+.tb-typing span:nth-child(2){animation-delay:.15s}
+.tb-typing span:nth-child(3){animation-delay:.3s}
+.tb-handoff{align-self:flex-start;max-width:88%;background:var(--ink3);border:1px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;padding:11px 13px;display:flex;flex-direction:column;gap:8px}
+.tb-handoff-title{font-size:.78rem;color:var(--white);font-weight:600}
+.tb-handoff-btn{display:flex;align-items:center;gap:8px;background:var(--ink2);border:1px solid var(--border);border-radius:var(--r2);padding:8px 11px;font-size:.72rem;color:var(--stone2);cursor:pointer;text-decoration:none;font-family:var(--ff-ui);transition:background var(--trans)}
+.tb-handoff-btn:hover{background:var(--ink);color:var(--white)}
+.tb-input-row{display:flex;gap:8px;padding:11px 14px;border-top:1px solid var(--border);background:var(--ink2);flex-shrink:0}
+.tb-input-row input{flex:1;padding:9px 12px;font-size:.8rem;border-radius:100px}
+.tb-send-btn{background:var(--purple);color:var(--white);border:none;border-radius:50%;width:36px;height:36px;flex-shrink:0;font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--trans)}
+.tb-send-btn:hover{background:var(--purple2,var(--purple))}
+@media(max-width:480px){
+  .tb-fab{right:14px;bottom:74px}
+  .tb-panel{right:8px;left:8px;width:auto;bottom:132px;max-height:min(70vh,560px)}
+}
 </style>
 </head>
 <body>
@@ -4580,7 +4631,7 @@ select option{background:var(--ink3)}
     <div class="pg-head" style="margin-bottom:18px"><h2>USDC WALLET</h2><p>Every payment settles here as USDC. Fund via Naira, card, or crypto. Withdraw to your bank, card, or crypto wallet. WhatsApp alerts included.</p></div>
     <div class="ngn-panel">
       <div>
-        <div class="bal-hero"><div class="bal-lbl">Available Balance</div><div class="bal-amt" id="usdc-bal">$ 0.00 USDC</div><div class="bal-sub" id="usdc-bal-sub">No funds yet</div><div class="bal-btns"><button class="btn btn-n" onclick="openModal('m-fund')">+ Fund Wallet</button><button class="btn btn-g" onclick="openWithdraw()">↑ Withdraw</button></div></div>
+        <div class="bal-hero"><div class="bal-lbl">Available Balance</div><div class="bal-amt" id="usdc-bal">$ 0.00 USDC</div><div class="bal-sub" id="usdc-bal-sub">No funds yet</div><div class="bal-btns"><button class="btn btn-n" id="btn-fund-wallet" onclick="openModal('m-fund')">+ Fund Wallet</button><button class="btn btn-g" onclick="openWithdraw()">↑ Withdraw</button></div></div>
         <div class="bank-card"><div style="font-size:.63rem;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--stone);margin-bottom:9px">Virtual Account (instant transfer)</div><div class="brow"><span>Name</span><span>TRUSTANA / <span id="vacct-name">You</span></span></div><div class="brow"><span>Account No.</span><span>0123456789 <button class="copy-btn" onclick="copyText('0123456789')">copy</button></span></div><div class="brow"><span>Bank</span><span>Providus Bank</span></div></div>
         <div class="card"><div class="card-hd"><h3>Fiat Escrows</h3><span class="tag ngn-t">💱 Fiat</span></div><div id="ngn-esc-list"></div></div>
       </div>
@@ -5079,6 +5130,26 @@ select option{background:var(--ink3)}
       <button onclick="endDemoTour()" style="background:none;border:1px solid var(--border);color:var(--stone);padding:7px 13px;border-radius:var(--r2);font-size:.72rem;cursor:pointer;font-family:var(--ff-ui);white-space:nowrap">✕ Skip</button>
       <button id="demo-next-btn" onclick="advanceDemoTour()" style="background:var(--purple);color:var(--white);border:none;padding:8px 18px;border-radius:var(--r2);font-size:.74rem;font-weight:700;cursor:pointer;font-family:var(--ff-ui);flex:1;letter-spacing:.3px">Next →</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ TRUST BUDDY CHATBOT ══ -->
+<button class="tb-fab" id="tb-fab" onclick="toggleTrustBuddy()" title="Chat with Trust Buddy" aria-label="Open Trust Buddy chat">
+  <span class="tb-fab-logo"></span><span class="tb-fab-dot"></span>
+</button>
+<div class="tb-panel" id="tb-panel">
+  <div class="tb-head">
+    <div class="tb-head-ico"><span class="tb-fab-logo"></span></div>
+    <div>
+      <div class="tb-head-name">Trust Buddy</div>
+      <div class="tb-head-sub"><span class="tb-head-sub-dot"></span>Usually replies instantly</div>
+    </div>
+    <button class="tb-close" onclick="toggleTrustBuddy()">✕</button>
+  </div>
+  <div class="tb-body" id="tb-body"></div>
+  <div class="tb-input-row">
+    <input type="text" id="tb-input" placeholder="Ask a question…" onkeydown="if(event.key==='Enter'){sendTrustBuddyMsg();}"/>
+    <button class="tb-send-btn" onclick="sendTrustBuddyMsg()">➤</button>
   </div>
 </div>
 
@@ -8061,7 +8132,7 @@ function copyReceipt(){
 function doRelease(){const u=getUser(),e=u.escrows.find(x=>x.id===pendingRelId);if(!e)return;e.status='released';e.autoReleaseAt=null;if(e.cur==='ngn'){u.ngnBalance+=e.amtNgn;u.usdcBalance=(u.usdcBalance||0)+ngnToUsdc(e.amtNgn);u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:ngnToUsdc(e.amtNgn),cur:'usdc'});}else if(e.cur==='usdc'){u.usdcBalance=(u.usdcBalance||0)+e.amount;u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:e.amount,cur:'usdc'});}saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);closeModal('m-release');renderDash();renderNaira();pushNotif('release','Payment Released',e.job,e.id);sendWA(`\u2705 Payment released for "${e.job.slice(0,30)}"! Funds sent to freelancer.`);setTimeout(()=>showReceipt(e,'client'),400);}
 
 // -- NAIRA --
-function renderNaira(){const u=getUser();if(!u)return;const usdcBal=u.usdcBalance||0;document.getElementById('usdc-bal').textContent='$'+usdcBal.toFixed(2)+' USDC';document.getElementById('usdc-bal-sub').textContent=usdcBal>0?'≈ ₦'+fmt(usdcToNgn(usdcBal))+' · Available to withdraw or lock':'Fund your wallet to get started';document.getElementById('vacct-name').textContent=u.fname+' '+u.lname;document.getElementById('wavail').textContent='$'+usdcBal.toFixed(2)+' USDC (≈₦'+fmt(usdcToNgn(usdcBal))+')';document.getElementById('fund-email').value=u.email;const ne=u.escrows.filter(e=>e.cur==='ngn');document.getElementById('ngn-esc-list').innerHTML=ne.length?ne.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);gap:9px"><div style="min-width:0;flex:1"><div style="font-size:.81rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.job)}</div><div style="font-size:.66rem;color:var(--stone)">${e.date}</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0"><div style="font-family:var(--ff-head);font-size:.86rem;color:var(--naira)">₦${fmt(e.amtNgn)}</div><span class="tag ${e.status}">${{locked:'Locked',submitted:'Submitted',disputed:'Disputed',released:'Released'}[e.status]}</span>${e.status==='locked'?`<button class="abtn abtn-rel" onclick="openRelease(${e.id})">Release</button>`:''}</div></div>`).join(''):'<div style="padding:22px;text-align:center;color:var(--stone);font-size:.78rem">No Fiat escrows yet.</div>';document.getElementById('tx-list').innerHTML=u.txHistory.slice(0,6).map(t=>`<div class="tx-item"><div class="tx-ico ${t.amt>0?'in':t.type==='lock'?'lock':'out'}">${t.amt>0?'⬇':t.type==='lock'?'🔒':'⬆'}</div><div style="flex:1;min-width:0"><div class="tx-name">${escapeHtml(t.name)}</div><div class="tx-date" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.sub)}</div></div><div class="tx-amt ${t.amt>0?'pos':t.type==='lock'?'locked':'neg'}">${t.amt>0?'+':''}${t.cur==='usdc'?'$'+Math.abs(t.amt).toFixed(2):'₦'+fmt(Math.abs(t.amt))}</div></div>`).join('');const wnd=document.getElementById('wa-number-display');if(wnd)wnd.textContent=u.waNumber||'Not set';const wag=document.getElementById('wa-global');if(wag&&u.waNumber)wag.value=u.waNumber.replace('+','');}
+function renderNaira(){const u=getUser();if(!u)return;const usdcBal=u.usdcBalance||0;const fundBtn=document.getElementById('btn-fund-wallet');if(fundBtn)fundBtn.style.display=(u.role==='freelancer')?'none':'inline-flex';document.getElementById('usdc-bal').textContent='$'+usdcBal.toFixed(2)+' USDC';document.getElementById('usdc-bal-sub').textContent=usdcBal>0?'≈ ₦'+fmt(usdcToNgn(usdcBal))+' · Available to withdraw or lock':'Fund your wallet to get started';document.getElementById('vacct-name').textContent=u.fname+' '+u.lname;document.getElementById('wavail').textContent='$'+usdcBal.toFixed(2)+' USDC (≈₦'+fmt(usdcToNgn(usdcBal))+')';document.getElementById('fund-email').value=u.email;const ne=u.escrows.filter(e=>e.cur==='ngn');document.getElementById('ngn-esc-list').innerHTML=ne.length?ne.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);gap:9px"><div style="min-width:0;flex:1"><div style="font-size:.81rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.job)}</div><div style="font-size:.66rem;color:var(--stone)">${e.date}</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0"><div style="font-family:var(--ff-head);font-size:.86rem;color:var(--naira)">₦${fmt(e.amtNgn)}</div><span class="tag ${e.status}">${{locked:'Locked',submitted:'Submitted',disputed:'Disputed',released:'Released'}[e.status]}</span>${e.status==='locked'?`<button class="abtn abtn-rel" onclick="openRelease(${e.id})">Release</button>`:''}</div></div>`).join(''):'<div style="padding:22px;text-align:center;color:var(--stone);font-size:.78rem">No Fiat escrows yet.</div>';document.getElementById('tx-list').innerHTML=u.txHistory.slice(0,6).map(t=>`<div class="tx-item"><div class="tx-ico ${t.amt>0?'in':t.type==='lock'?'lock':'out'}">${t.amt>0?'⬇':t.type==='lock'?'🔒':'⬆'}</div><div style="flex:1;min-width:0"><div class="tx-name">${escapeHtml(t.name)}</div><div class="tx-date" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.sub)}</div></div><div class="tx-amt ${t.amt>0?'pos':t.type==='lock'?'locked':'neg'}">${t.amt>0?'+':''}${t.cur==='usdc'?'$'+Math.abs(t.amt).toFixed(2):'₦'+fmt(Math.abs(t.amt))}</div></div>`).join('');const wnd=document.getElementById('wa-number-display');if(wnd)wnd.textContent=u.waNumber||'Not set';const wag=document.getElementById('wa-global');if(wag&&u.waNumber)wag.value=u.waNumber.replace('+','');}
 
 // -- WITHDRAW --
 let wdAN='',wdBN='',wdOK=false;
@@ -8293,18 +8364,43 @@ const _tourIntro={
   action:()=>goTo('s-home'),target:null
 };
 
+// Opens a real SmartVerify™ result if the signed-in account has one on file
+// (the seeded demo accounts do) — falls back to just showing the Dashboard
+// if not, so the step always lands on a real screen instead of floating
+// over nothing.
+function _tourShowSmartVerify(){
+  goTo('s-dash');
+  const u=getUser();
+  const e=u&&u.escrows?u.escrows.find(x=>x.aiResult&&x.submission):null;
+  if(e)setTimeout(()=>openAIVerify(e.id),300);
+}
+
 const _tourSmartVerify={
   ico:'✦',title:'SmartVerify™ Checks Everything',
-  desc:'Claude AI reads the original requirements and checks each one against the delivery — Pass, Partial, or Fail. Scored breakdown. No human bias, no arguments.',
+  desc:'Claude AI reads the original requirements and checks each one against the delivery — Pass, Partial, or Fail. Scored breakdown. No human bias, no arguments. Here\'s a real result:',
   role:null,hint:'✦ SmartVerify™ AI',
-  action:null,target:null
+  action:_tourShowSmartVerify,target:'sv-badge'
+};
+
+const _tourWalletFund={
+  ico:'🪙',title:'Funding Your USDC Wallet',
+  desc:'Top up any time — Naira via Paystack, card via Stripe, or Crypto via Phantom. Whatever method you use, it settles straight into your balance as USDC, ready to lock into an escrow or withdraw.',
+  role:null,hint:'📍 Now on: USDC Wallet',
+  action:()=>goTo('s-naira'),target:'btn-fund-wallet'
+};
+
+const _tourDispute={
+  ico:'⚖️',title:'Dispute Centre — Fair for Both Sides',
+  desc:'If a delivery is contested, either party can raise a dispute right here. Funds freeze for 48 hours while both sides state their case, then arbitration resolves it — transparent, and final.',
+  role:null,hint:'📍 Now on: Disputes',
+  action:()=>goTo('s-disputes'),target:'s-disputes'
 };
 
 const _tourCleanup={
   ico:'🗑️',title:'Clean Up Completed Records',
-  desc:'After 7 days, completed or cancelled escrows can be permanently deleted from your history by either party. Auto-cleanup keeps your account tidy as it grows.',
+  desc:'After 7 days, completed or cancelled escrows show a 🗑️ delete option right in this table — either party can permanently clear the record. Keeps your account tidy as it grows.',
   role:null,hint:'📍 Dashboard',
-  action:()=>goTo('s-dash'),target:null
+  action:()=>goTo('s-dash'),target:'dash-table-wrap'
 };
 
 function _tourChatStep(role){
@@ -8330,6 +8426,7 @@ const _tourClientSteps=[
     role:'client',hint:'📍 Now on: Create Escrow',
     action:null,target:'create-bal-bar'
   },
+  _tourWalletFund,
   {
     ico:'💼',title:'Step 3 — Your Freelancer Gets Notified Instantly',
     desc:'The moment you lock payment, the job appears on your freelancer\'s dashboard automatically. No emails, no manual sharing.',
@@ -8341,9 +8438,10 @@ const _tourClientSteps=[
     ico:'✅',title:'Step 4 — Approve & Pay',
     desc:'Release payment with one tap once work checks out. If you go quiet for 24 hours after delivery, funds auto-release to your freelancer. Fair for everyone.',
     role:'client',hint:'📍 Now on: Dashboard',
-    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+    action:()=>goTo('s-dash'),target:'abtn-rel'
   },
   _tourChatStep('client'),
+  _tourDispute,
   _tourCleanup
 ];
 
@@ -8365,15 +8463,17 @@ const _tourFreelancerSteps=[
     ico:'✅',title:'Step 3 — Get Paid, Guaranteed',
     desc:'Once approved, funds hit your wallet instantly. If your client goes quiet for 24 hours after delivery, you get paid automatically. You always get paid. Period.',
     role:'freelancer',hint:'📍 Now on: Dashboard',
-    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+    action:()=>goTo('s-dash'),target:'abtn-rel'
   },
   _tourChatStep('freelancer'),
+  _tourDispute,
   _tourCleanup
 ];
 
 const _tourBothSteps=[
   _tourClientSteps[0],
   _tourClientSteps[1],
+  _tourWalletFund,
   {
     ico:'💼',title:'Step 3 — The Other Side Gets Notified Instantly',
     desc:'Whichever side of a job you\'re on — client or freelancer — the other party is notified the moment there\'s an update. No emails, no manual sharing.',
@@ -8391,9 +8491,10 @@ const _tourBothSteps=[
     ico:'✅',title:'Step 5 — Approve & Pay, or Get Paid',
     desc:'As a client, release payment with one tap — or let it auto-release after 24 hours. As a freelancer, you always get paid. Fair for everyone, on every job.',
     role:'both',hint:'📍 Now on: Dashboard',
-    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+    action:()=>goTo('s-dash'),target:'abtn-rel'
   },
   _tourChatStep('both'),
+  _tourDispute,
   _tourCleanup
 ];
 
@@ -8406,10 +8507,18 @@ let DEMO_STEPS=_buildDemoSteps('client');
 
 let _demoStep=0,_demoActive=false;
 
+// Closes any modal a tour step may have opened (e.g. the SmartVerify
+// result) so it never lingers into the next step and looks "stuck".
+function _tourCloseOpenedModals(){
+  closeModal('m-verify');
+  closeModal('m-verify-ms');
+}
+
 function startDemoTour(){
   // Tour always reflects the actual signed-in user's real role — never
   // switches accounts. If somehow launched with no session, fall back to
   // the client walkthrough as a generic preview.
+  _tourCloseOpenedModals();
   const u=getUser();
   DEMO_STEPS=_buildDemoSteps(u?u.role:'client');
   _demoStep=0;_demoActive=true;
@@ -8516,12 +8625,162 @@ function _centerCard(card){
 function advanceDemoTour(){
   _demoStep++;
   if(_demoStep>=DEMO_STEPS.length){endDemoTour();return;}
+  _tourCloseOpenedModals();
   const card=document.getElementById('demo-card');
   card.style.opacity='0';card.style.transform='translateY(8px)';
   setTimeout(_renderDemoStep,260);
 }
 
+// -- TRUST BUDDY CHATBOT --
+const TB_TOPICS=[
+  {id:'what',label:'What is Trustana?',keywords:['what is trustana','how does it work','how does trustana work'],
+    a:'Trustana is a freelance escrow platform. The client locks payment — settled in USDC, funded via Crypto or Fiat, any currency — before work begins. The freelancer delivers, SmartVerify™ AI checks it against the requirements, and funds release. If the client goes quiet, funds auto-release after 24 hours.'},
+  {id:'safe',label:'Is my money safe?',keywords:['safe','secure','security','scam','trust'],
+    a:'Yes. Funds sit in escrow and can\'t be touched by anyone until it\'s resolved. If something\'s contested, funds freeze for 48 hours while both sides state their case in the Dispute Centre — neither party can just take the money and run.'},
+  {id:'fund',label:'How do I fund my wallet?',keywords:['fund','wallet','top up','topup','deposit','paystack','stripe','phantom','currency','payment method'],
+    a:'Open USDC Wallet → + Fund Wallet. You can pay with Naira via Paystack, card via Stripe, or Crypto via Phantom — every method settles into your balance as USDC, ready to lock into an escrow or withdraw.'},
+  {id:'verify',label:'What is SmartVerify™?',keywords:['smartverify','smart verify','ai check','verify','verdict'],
+    a:'SmartVerify™ is powered by Claude AI. When a freelancer submits work, it reads the original requirements and checks each one against the delivery — Pass, Partial, or Fail — with a scored breakdown. No human bias, and it explains its reasoning.'},
+  {id:'dispute',label:'How do disputes work?',keywords:['dispute','disagree','arbitration','refund','conflict'],
+    a:'Either side can raise a dispute before release, right from the job or the Dispute Centre. Funds freeze for 48 hours while both parties submit their case, then arbitration resolves it — transparent, and final.'},
+  {id:'release',label:'When do I get paid?',keywords:['get paid','auto-release','auto release','24 hour','payout','when do i get paid'],
+    a:'The client can release payment manually once work checks out. If they go quiet for 24 hours after you submit, funds auto-release to you automatically — you always get paid.'},
+  {id:'delete',label:'Can I delete old records?',keywords:['delete','remove','clean up','cleanup','history'],
+    a:'Yes — 7 days after an escrow is completed or cancelled, a 🗑️ delete option appears on that job in your Dashboard so either party can clear it from their history.'},
+  {id:'fee',label:'What does it cost?',keywords:['cost','fee','price','pricing','charge'],
+    a:'Creating an account is free. Trustana takes a small platform fee only on successfully released escrows — nothing on cancellations or disputes.'},
+];
+let _tbOpened=false;
+
+function toggleTrustBuddy(){
+  const p=document.getElementById('tb-panel');
+  const opening=!p.classList.contains('open');
+  p.classList.toggle('open');
+  if(opening&&!_tbOpened){
+    _tbOpened=true;
+    _tbBotBubble('Hey, I\'m Trust Buddy 👋 I can answer quick questions about Trustana, or connect you with our team. What do you need?');
+    _tbShowQuickReplies();
+  }
+}
+
+function _tbScrollBottom(){
+  const b=document.getElementById('tb-body');
+  requestAnimationFrame(()=>{b.scrollTo({top:b.scrollHeight,behavior:'smooth'});});
+}
+
+function _tbUserBubble(text){
+  const b=document.getElementById('tb-body');
+  const d=document.createElement('div');
+  d.className='chat-msg chat-msg-mine';
+  d.style.alignSelf='flex-end';
+  d.textContent=text;
+  b.appendChild(d);_tbScrollBottom();
+}
+
+function _tbBotBubble(text){
+  const b=document.getElementById('tb-body');
+  const d=document.createElement('div');
+  d.className='chat-msg chat-msg-theirs';
+  d.style.alignSelf='flex-start';
+  d.textContent=text;
+  b.appendChild(d);_tbScrollBottom();
+}
+
+function _tbTypingThenReply(text,cb){
+  const b=document.getElementById('tb-body');
+  const t=document.createElement('div');
+  t.className='tb-typing';t.id='tb-typing-now';
+  t.innerHTML='<span></span><span></span><span></span>';
+  b.appendChild(t);_tbScrollBottom();
+  setTimeout(()=>{
+    const el=document.getElementById('tb-typing-now');if(el)el.remove();
+    _tbBotBubble(text);
+    if(cb)cb();
+  },550+Math.random()*350);
+}
+
+function _tbShowQuickReplies(){
+  const b=document.getElementById('tb-body');
+  const wrap=document.createElement('div');
+  wrap.className='tb-quick-wrap';
+  wrap.id='tb-quick-'+Date.now();
+  TB_TOPICS.forEach(t=>{
+    const btn=document.createElement('button');
+    btn.className='tb-quick';btn.textContent=t.label;
+    btn.onclick=()=>_tbAskTopic(t.id,wrap);
+    wrap.appendChild(btn);
+  });
+  const human=document.createElement('button');
+  human.className='tb-quick tb-human';
+  human.textContent='🙋 Talk to a human';
+  human.onclick=()=>_tbEscalate(wrap);
+  wrap.appendChild(human);
+  b.appendChild(wrap);_tbScrollBottom();
+}
+
+function _tbRemoveQuickReplies(wrap){if(wrap&&wrap.parentNode)wrap.remove();}
+
+function _tbAskTopic(id,wrap){
+  const topic=TB_TOPICS.find(t=>t.id===id);
+  if(!topic)return;
+  _tbRemoveQuickReplies(wrap);
+  _tbUserBubble(topic.label);
+  _tbTypingThenReply(topic.a,_tbShowQuickReplies);
+}
+
+function _tbEscalate(wrap){
+  _tbRemoveQuickReplies(wrap);
+  _tbUserBubble('🙋 Talk to a human');
+  _tbTypingThenReply('Of course — here\'s the fastest way to reach the team:',()=>{
+    const b=document.getElementById('tb-body');
+    const card=document.createElement('div');
+    card.className='tb-handoff';
+    card.innerHTML=`
+      <div class="tb-handoff-title">Trustana Support</div>
+      <a class="tb-handoff-btn" href="https://wa.me/2348111592981" target="_blank" rel="noopener">📱 WhatsApp — usually replies in under 2 hours</a>
+      <a class="tb-handoff-btn" href="mailto:officialtrustana@gmail.com">🛠 Email Technical Support</a>
+      <button class="tb-handoff-btn" onclick="toggleTrustBuddy();goToContact()">📇 Open full Contact page</button>
+    `;
+    b.appendChild(card);_tbScrollBottom();
+    _tbShowQuickReplies();
+  });
+}
+
+function sendTrustBuddyMsg(){
+  const inp=document.getElementById('tb-input');
+  const raw=inp.value.trim();
+  if(!raw)return;
+  inp.value='';
+  // Remove any dangling quick-reply menu so the flow stays linear
+  document.querySelectorAll('.tb-quick-wrap').forEach(w=>w.remove());
+  _tbUserBubble(raw);
+  const q=raw.toLowerCase();
+  if(/\b(human|agent|person|someone|support|team|representative)\b/.test(q)){
+    _tbTypingThenReply('Of course — here\'s the fastest way to reach the team:',()=>{
+      const b=document.getElementById('tb-body');
+      const card=document.createElement('div');
+      card.className='tb-handoff';
+      card.innerHTML=`
+        <div class="tb-handoff-title">Trustana Support</div>
+        <a class="tb-handoff-btn" href="https://wa.me/2348111592981" target="_blank" rel="noopener">📱 WhatsApp — usually replies in under 2 hours</a>
+        <a class="tb-handoff-btn" href="mailto:officialtrustana@gmail.com">🛠 Email Technical Support</a>
+        <button class="tb-handoff-btn" onclick="toggleTrustBuddy();goToContact()">📇 Open full Contact page</button>
+      `;
+      b.appendChild(card);_tbScrollBottom();
+      _tbShowQuickReplies();
+    });
+    return;
+  }
+  const match=TB_TOPICS.find(t=>t.keywords.some(k=>q.includes(k)));
+  if(match){
+    _tbTypingThenReply(match.a,_tbShowQuickReplies);
+  }else{
+    _tbTypingThenReply('I\'m not totally sure about that one — pick a topic below, or talk to our team directly and they\'ll sort you out.',_tbShowQuickReplies);
+  }
+}
+
 function endDemoTour(){
+  _tourCloseOpenedModals();
   _demoActive=false;
   const t=document.getElementById('demo-tour');
   t.style.transition='opacity .3s ease';
