@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -367,6 +366,7 @@ select option{background:var(--ink3)}
 .abtn{font-family:var(--ff-ui);font-size:.66rem;font-weight:600;padding:4px 8px;border-radius:5px;border:none;cursor:pointer;transition:all var(--trans);white-space:nowrap}
 .abtn-rel{background:var(--green-dim);color:var(--green);border:1px solid rgba(45,212,160,.2)}.abtn-rel:hover{background:var(--green);color:var(--ink)}
 .abtn-v{background:var(--ink3);color:var(--stone2);border:1px solid var(--border)}.abtn-v:hover{color:var(--white)}
+.abtn-chat{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(91,139,245,.25)}.abtn-chat:hover{background:var(--blue);color:#fff}
 .abtn-sub{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(168,85,247,.2)}.abtn-sub:hover{background:var(--purple);color:#fff}
 .abtn-dis{background:var(--orange-dim);color:var(--orange);border:1px solid rgba(251,146,60,.2)}.abtn-dis:hover{background:var(--orange);color:#fff}
 
@@ -5401,7 +5401,7 @@ function startFirebaseListener(){
       localStorage.setItem(STORE_KEY,JSON.stringify(local));
       renderDash();
       if(document.getElementById("s-naira").classList.contains("active")) renderNaira();
-      if(SHOW_NOTIF_POPUPS)showToast("\u2726 Dashboard synced from remote device");
+      // sync popup removed — data still updates silently in the background
     }
   });
 }
@@ -5744,7 +5744,6 @@ async function loginOK(em){
   if(mnul){mnul.textContent='Account';mnul.style.color='';}
   histStack=[];
   if(window._fbReady&&!_demoActive){
-    if(SHOW_NOTIF_POPUPS)showToast('\u{1F504} Syncing...');
     await pullFromFirebase();
   }
   claimPendingEscrows(em);
@@ -7521,12 +7520,12 @@ const SL_FL={locked:'Job Ready — Start Work',submitted:'Submitted — Awaiting
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
       const mi=e.milestones?` \u00B7 ${e.milestones.filter(m=>m.status==='released').length}/${e.milestones.length} ms`:'';
-      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${mi}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${escapeHtml(e.clientName||'Client')}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_flActs(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
+      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${mi}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${escapeHtml(e.clientName||'Client')}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_flActs(e)}<button class="abtn abtn-chat" onclick="openChat(${e.id});event.stopPropagation()">💬 Chat</button><button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
     }).join(''):noJobs;
     document.getElementById('dash-mt').innerHTML=vis.length?vis.map(e=>{
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
-      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL_FL[e.status]||e.status}</span></div><div style="font-size:.72rem;color:var(--stone);margin-bottom:4px">Client: ${escapeHtml(e.clientName||'\u2014')}</div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_flActsM(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
+      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL_FL[e.status]||e.status}</span></div><div style="font-size:.72rem;color:var(--stone);margin-bottom:4px">Client: ${escapeHtml(e.clientName||'\u2014')}</div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_flActsM(e)}<button class="abtn abtn-chat" onclick="openChat(${e.id});event.stopPropagation()" style="padding:8px 11px">💬 Chat</button><button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
     }).join(''):noJobs;
 
   } else {
@@ -7543,12 +7542,12 @@ const SL_FL={locked:'Job Ready — Start Work',submitted:'Submitted — Awaiting
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
       const ml=e.milestones?` \u00B7 ${e.milestones.filter(m=>m.status==='released').length}/${e.milestones.length} ms`:'';
-      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${ml}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${escapeHtml(e.cur==='usdc'?(e.flEmail||'\u2014'):(s?e.wallet:e.acct))}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_clActs(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
+      return`<div class="tbl-row" onclick="viewDetail(${e.id})"><div><div class="er-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><div class="er-d">${e.date}${ml}</div>${t?`<div class="dash-timer-row"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">until auto-release</span></div>`:''}</div><div class="er-w">${escapeHtml(e.cur==='usdc'?(e.flEmail||'\u2014'):(s?e.wallet:e.acct))}</div><div class="er-amt ${escAmtCls(e)}">${a}</div><div><span class="tag ${escAmtCls(e)+'-t'}">$</span></div><div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="er-acts" onclick="event.stopPropagation()">${_clActs(e)}<button class="abtn abtn-chat" onclick="openChat(${e.id});event.stopPropagation()">💬 Chat</button><button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()">View</button></div></div>`;
     }).join(''):noEsc;
     document.getElementById('dash-mt').innerHTML=vis.length?vis.map(e=>{
       const s=e.cur==='sol',a=escAmtStr(e);
       const t=e.status==='submitted'&&e.autoReleaseAt?getTL(e.autoReleaseAt):null;
-      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_clActsM(e)}<button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
+      return`<div class="esc-card-m" onclick="viewDetail(${e.id})"><div class="ecm-top"><div class="ecm-job">${escapeHtml(e.job)}${e.milestones?' \uD83D\uDCCA':''}</div><span class="tag ${e.status}">${SL[e.status]||e.status}</span></div><div class="ecm-meta"><span class="ecm-amt ${escAmtCls(e)}">${a}</span><span class="tag ${escAmtCls(e)+'-t'}">$ USDC</span></div>${t?`<div class="dash-timer-row" style="margin-top:6px"><span class="dash-timer-ico">⏱</span><span class="dash-timer-val" id="dt-${e.id}" data-at="${e.autoReleaseAt}">${t.str}</span><span class="dash-timer-lbl">auto-release</span></div>`:''}<div class="ecm-acts" onclick="event.stopPropagation()">${_clActsM(e)}<button class="abtn abtn-chat" onclick="openChat(${e.id});event.stopPropagation()" style="padding:8px 11px">💬 Chat</button><button class="abtn abtn-v" onclick="viewDetail(${e.id});event.stopPropagation()" style="padding:8px 11px">View \u2192</button></div></div>`;
     }).join(''):noEsc;
   }
   // Start live dashboard countdowns for all submitted escrows
@@ -7556,6 +7555,15 @@ const SL_FL={locked:'Job Ready — Start Work',submitted:'Submitted — Awaiting
 }
 
 // -- DETAIL --
+function openChat(id){
+  viewDetail(id);
+  setTimeout(()=>{
+    const card=document.querySelector('.chat-card');
+    if(card)card.scrollIntoView({behavior:'smooth',block:'start'});
+    const inp=document.getElementById('chat-input');
+    if(inp)inp.focus();
+  },250);
+}
 function viewDetail(id){
   const u=getUser(),e=u.escrows.find(x=>x.id===id);if(!e)return;
   // Real-time sync: if this user is the CLIENT and escrow has a flEmail,
@@ -8276,70 +8284,152 @@ function initCanvas(id){
 window.addEventListener('resize',()=>{if(document.getElementById('s-dash').classList.contains('active'))renderDash();});
 
 // -- DEMO TOUR --
-const DEMO_STEPS=[
+// -- DEMO TOUR (role-aware — always stays on the actual signed-in account, never swaps sessions) --
+
+const _tourIntro={
+  ico:'🔐',title:'What is Trustana?',
+  desc:'Trustana holds payment safely between a client and freelancer. The client locks the money before work starts — the freelancer knows it\'s real and secured. Nobody can run.',
+  role:null,hint:'Home',
+  action:()=>goTo('s-home'),target:null
+};
+
+const _tourSmartVerify={
+  ico:'✦',title:'SmartVerify™ Checks Everything',
+  desc:'Claude AI reads the original requirements and checks each one against the delivery — Pass, Partial, or Fail. Scored breakdown. No human bias, no arguments.',
+  role:null,hint:'✦ SmartVerify™ AI',
+  action:null,target:null
+};
+
+const _tourCleanup={
+  ico:'🗑️',title:'Clean Up Completed Records',
+  desc:'After 7 days, completed or cancelled escrows can be permanently deleted from your history by either party. Auto-cleanup keeps your account tidy as it grows.',
+  role:null,hint:'📍 Dashboard',
+  action:()=>goTo('s-dash'),target:null
+};
+
+function _tourChatStep(role){
+  const who = role==='freelancer' ? 'your client' : role==='both' ? 'the other party on a job' : 'your freelancer';
+  return{
+    ico:'💬',title:'Chat, Right From the Job Row',
+    desc:'Every job now has a 💬 Chat button next to View — message '+who+' directly from the dashboard without digging through the detail page.',
+    role, hint:'📍 Dashboard',
+    action:()=>goTo('s-dash'),target:'abtn-chat'
+  };
+}
+
+const _tourClientSteps=[
   {
-    ico:'🔐',title:'What is Trustana?',
-    desc:'Trustana holds payment safely between a client and freelancer. The client locks the money before work starts — the freelancer knows it\'s real and secured. Nobody can run.',
-    screen:'s-home',role:null,hint:'Home',
-    action:()=>goTo('s-home'),target:null
+    ico:'💳',title:'Step 1 — Create an Escrow',
+    desc:'Fill in the job title, requirements, and amount, then lock the funds straight from your USDC Wallet balance. Work cannot start until this is done.',
+    role:'client',hint:'📍 Now on: Create Escrow',
+    action:()=>goTo('s-create'),target:'s-create'
   },
   {
-    ico:'💳',title:'Step 1 — Client Creates an Escrow',
-    desc:'The client fills in the job title, requirements, and amount, then locks the funds straight from their USDC Wallet balance. Work cannot start until this is done.',
-    screen:'s-create',role:'client',hint:'📍 Now on: Create Escrow',
-    action:()=>{demoLogin('client');setTimeout(()=>goTo('s-create'),300);},
-    target:'s-create'
-  },
-  {
-    ico:'🪙',title:'Step 2 — Fund from Your USDC Wallet & Add Milestones',
-    desc:'Every escrow locks straight from your USDC Wallet balance — top it up with Crypto via Phantom or Fiat via Paystack/Stripe in any currency, it all settles in USDC. Split the total into milestones — the freelancer gets paid as they deliver each phase. Full flexibility.',
-    screen:'s-create',role:'client',hint:'📍 Now on: Create Escrow',
+    ico:'🪙',title:'Step 2 — Fund From Your Wallet & Add Milestones',
+    desc:'Every escrow locks straight from your USDC Wallet balance — top it up with Crypto via Phantom or Fiat via Paystack/Stripe in any currency, it all settles in USDC. Split the total into milestones so your freelancer gets paid as they deliver each phase.',
+    role:'client',hint:'📍 Now on: Create Escrow',
     action:null,target:'create-bal-bar'
   },
   {
-    ico:'💼',title:'Step 3 — Freelancer\'s Personalised Dashboard',
-    desc:'The moment payment locks, the job appears on the freelancer\'s dashboard automatically. Their home screen shows pending jobs and protections. No emails. No manual sharing.',
-    screen:'s-home',role:'freelancer',hint:'📍 Now on: Freelancer Home',
-    action:()=>{demoLogin('freelancer');setTimeout(()=>goTo('s-home'),300);},
-    target:'hero-dash-btn'
+    ico:'💼',title:'Step 3 — Your Freelancer Gets Notified Instantly',
+    desc:'The moment you lock payment, the job appears on your freelancer\'s dashboard automatically. No emails, no manual sharing.',
+    role:'client',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-dash'),target:'dash-table-wrap'
   },
+  _tourSmartVerify,
   {
-    ico:'📦',title:'Step 4 — Freelancer Submits Work',
-    desc:'When work is done, the freelancer pastes a delivery link and notes. The client gets a WhatsApp notification instantly. Funds are locked — they can\'t be touched until the client reviews.',
-    screen:'s-dash',role:'freelancer',hint:'📍 Now on: Freelancer Jobs',
-    action:()=>{demoLogin('freelancer');setTimeout(()=>goTo('s-dash'),300);},
-    target:'dash-table-wrap'
+    ico:'✅',title:'Step 4 — Approve & Pay',
+    desc:'Release payment with one tap once work checks out. If you go quiet for 24 hours after delivery, funds auto-release to your freelancer. Fair for everyone.',
+    role:'client',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-dash'),target:'dash-table-wrap'
   },
-  {
-    ico:'✦',title:'Step 5 — SmartVerify™ Checks Everything',
-    desc:'Claude AI reads the original requirements and checks each one against the delivery — Pass, Partial, or Fail. Scored breakdown. No human bias, no arguments.',
-    screen:'s-dash',role:null,hint:'📍 SmartVerify™ AI',
-    action:null,target:null
-  },
-  {
-    ico:'✅',title:'Step 6 — Client Approves & Pays',
-    desc:'The client releases payment with one tap. If the client goes quiet for 24 hours after delivery, funds auto-release to the freelancer. Always paid. Period.',
-    screen:'s-dash',role:'client',hint:'📍 Now on: Client Dashboard',
-    action:()=>{demoLogin('client');setTimeout(()=>goTo('s-dash'),300);},
-    target:'dash-table-wrap'
-  },
-  {
-    ico:'🗑️',title:'Step 7 — Clean Up Completed Records',
-    desc:'After 7 days, completed or cancelled escrows can be permanently deleted from your history by either party. Auto-cleanup keeps accounts tidy when history grows large.',
-    screen:'s-dash',role:'client',hint:'📍 Now on: Client Dashboard',
-    action:null,target:null
-  }
+  _tourChatStep('client'),
+  _tourCleanup
 ];
 
-let _demoStep=0,_demoActive=false,_preTourSession=null;
+const _tourFreelancerSteps=[
+  {
+    ico:'💼',title:'Step 1 — Your Personalised Dashboard',
+    desc:'The moment a client locks payment, the job appears on your dashboard automatically. No emails, no manual sharing — just check your jobs and get to work.',
+    role:'freelancer',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-home'),target:['hero-dash-btn','hero-dash-btn-dt']
+  },
+  {
+    ico:'📦',title:'Step 2 — Submit Your Work',
+    desc:'When work is done, paste a delivery link and notes. Your client gets a WhatsApp notification instantly. Funds stay locked and safe until they review.',
+    role:'freelancer',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+  },
+  _tourSmartVerify,
+  {
+    ico:'✅',title:'Step 3 — Get Paid, Guaranteed',
+    desc:'Once approved, funds hit your wallet instantly. If your client goes quiet for 24 hours after delivery, you get paid automatically. You always get paid. Period.',
+    role:'freelancer',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+  },
+  _tourChatStep('freelancer'),
+  _tourCleanup
+];
+
+const _tourBothSteps=[
+  _tourClientSteps[0],
+  _tourClientSteps[1],
+  {
+    ico:'💼',title:'Step 3 — The Other Side Gets Notified Instantly',
+    desc:'Whichever side of a job you\'re on — client or freelancer — the other party is notified the moment there\'s an update. No emails, no manual sharing.',
+    role:'both',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+  },
+  {
+    ico:'📦',title:'Step 4 — Submitting Work as a Freelancer',
+    desc:'On jobs where you\'re the freelancer, paste a delivery link and notes when work is done. The client gets a WhatsApp notification instantly.',
+    role:'both',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+  },
+  _tourSmartVerify,
+  {
+    ico:'✅',title:'Step 5 — Approve & Pay, or Get Paid',
+    desc:'As a client, release payment with one tap — or let it auto-release after 24 hours. As a freelancer, you always get paid. Fair for everyone, on every job.',
+    role:'both',hint:'📍 Now on: Dashboard',
+    action:()=>goTo('s-dash'),target:'dash-table-wrap'
+  },
+  _tourChatStep('both'),
+  _tourCleanup
+];
+
+function _buildDemoSteps(role){
+  const roleSteps = role==='freelancer' ? _tourFreelancerSteps : role==='both' ? _tourBothSteps : _tourClientSteps;
+  return [_tourIntro, ...roleSteps];
+}
+
+let DEMO_STEPS=_buildDemoSteps('client');
+
+let _demoStep=0,_demoActive=false;
 
 function startDemoTour(){
-  // Remember who was logged in before the tour (so we can restore them)
-  _preTourSession=session?session.email:null;
+  // Tour always reflects the actual signed-in user's real role — never
+  // switches accounts. If somehow launched with no session, fall back to
+  // the client walkthrough as a generic preview.
+  const u=getUser();
+  DEMO_STEPS=_buildDemoSteps(u?u.role:'client');
   _demoStep=0;_demoActive=true;
   document.getElementById('demo-tour').style.display='block';
   document.getElementById('demo-tour').style.pointerEvents='auto';
   _renderDemoStep();
+}
+
+function _resolveTourTarget(target){
+  if(!target)return null;
+  const candidates=Array.isArray(target)?target:[target];
+  for(const c of candidates){
+    const byId=document.getElementById(c);
+    const pool=byId?[byId]:Array.from(document.getElementsByClassName(c));
+    for(const el of pool){
+      const r=el.getBoundingClientRect();
+      if(r.width>0&&r.height>0)return el;
+    }
+  }
+  return null;
 }
 
 function _renderDemoStep(){
@@ -8369,6 +8459,12 @@ function _renderDemoStep(){
     pill.style.color='var(--blue)';
     pill.style.border='1px solid rgba(91,139,245,.25)';
     pill.textContent='💻 Freelancer';
+  } else if(step.role==='both'){
+    pill.style.display='inline-block';
+    pill.style.background='rgba(168,85,247,.12)';
+    pill.style.color='var(--purple)';
+    pill.style.border='1px solid rgba(168,85,247,.25)';
+    pill.textContent='👤💻 Client & Freelancer';
   } else {
     pill.style.display='none';
   }
@@ -8385,27 +8481,22 @@ function _renderDemoStep(){
     const spot=document.getElementById('demo-spotlight');
 
     // Try to spotlight the target element
-    if(step.target){
-      const el=document.getElementById(step.target)||document.querySelector('.'+step.target);
-      if(el){
-        const r=el.getBoundingClientRect();
-        const pad=10;
-        spot.style.opacity='1';
-        spot.style.left=(r.left-pad)+'px';
-        spot.style.top=(r.top-pad)+'px';
-        spot.style.width=(r.width+pad*2)+'px';
-        spot.style.height=(r.height+pad*2)+'px';
-        // Position card below or above the target
-        const vw=window.innerWidth,vh=window.innerHeight;
-        const cw=320,ch=220;
-        const spaceBelow=vh-(r.bottom+pad+16);
-        const cardTop=spaceBelow>=ch ? r.bottom+pad+16 : Math.max(16,r.top-pad-ch-16);
-        card.style.left=Math.max(16,Math.min(vw-cw-16,r.left))+'px';
-        card.style.top=cardTop+'px';
-      } else {
-        spot.style.opacity='0';
-        _centerCard(card);
-      }
+    const el=_resolveTourTarget(step.target);
+    if(el){
+      const r=el.getBoundingClientRect();
+      const pad=10;
+      spot.style.opacity='1';
+      spot.style.left=(r.left-pad)+'px';
+      spot.style.top=(r.top-pad)+'px';
+      spot.style.width=(r.width+pad*2)+'px';
+      spot.style.height=(r.height+pad*2)+'px';
+      // Position card below or above the target
+      const vw=window.innerWidth,vh=window.innerHeight;
+      const cw=320,ch=220;
+      const spaceBelow=vh-(r.bottom+pad+16);
+      const cardTop=spaceBelow>=ch ? r.bottom+pad+16 : Math.max(16,r.top-pad-ch-16);
+      card.style.left=Math.max(16,Math.min(vw-cw-16,r.left))+'px';
+      card.style.top=cardTop+'px';
     } else {
       spot.style.opacity='0';
       _centerCard(card);
@@ -8436,17 +8527,10 @@ function endDemoTour(){
   t.style.transition='opacity .3s ease';
   t.style.opacity='0';
   setTimeout(()=>{t.style.display='none';t.style.opacity='';t.style.pointerEvents='none';},300);
-  // Restore whatever session existed before the tour started
-  if(_preTourSession){
-    loginOK(_preTourSession);
-    showToast('✦ Tour complete! Back to your account.');
-  } else {
-    // No session before tour — return to landing page
-    session=null;
-    goTo('s-land');
-    showToast('✦ Tour complete! Sign up or log in to get started.');
-  }
-  _preTourSession=null;
+  // No session was ever swapped — the user stays exactly who they were.
+  const u=getUser();
+  goTo('s-home');
+  showToast(u?'✦ Tour complete, '+u.fname+'! You\'re all set.':'✦ Tour complete!');
 }
 
 // -- SHARE LINK --
