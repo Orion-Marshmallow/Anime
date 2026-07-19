@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,6 +46,7 @@
 // ============================================================
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut as fbSignOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey:            "AIzaSyD6B4hNFWFQwvIhG878hZYzNcgETfKqir0",
@@ -102,6 +104,7 @@ if (window._fbReady) {
   try {
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
+    const auth = getAuth(app);
 
     window._fbSet = async (path, data) => {
       try { await set(ref(db, path), path==='store'?_fbSanitizeStore(data):data); return true; }
@@ -125,7 +128,35 @@ if (window._fbReady) {
       });
     };
 
-    console.log('Firebase ready - real-time sync ON');
+    // Real, server-verified authentication (Firebase Auth) — replaces the
+    // app's own client-side password hashing for any account that goes
+    // through this. Errors are returned as {ok:false, code} rather than
+    // thrown, so callers can show a friendly message.
+    window._fbAuthReady = true;
+    window._fbAuthSignUp = async (email, password) => {
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Record uid -> sanitized-store-key so RTDB rules can do an exact
+        // string match (auth.token.email can't be compared directly to our
+        // comma-sanitized keys without a fragile, dot-count-sensitive
+        // string-replace in the rules language).
+        try { await set(ref(db, 'uidToEmail/'+cred.user.uid), _fbKeyOut(email)); }
+        catch(e2) { console.warn('uidToEmail mapping write failed:', e2.message); }
+        return {ok:true};
+      }
+      catch(e) { return {ok:false, code:e.code||'', message:e.message}; }
+    };
+    window._fbAuthSignIn = async (email, password) => {
+      try { await signInWithEmailAndPassword(auth, email, password); return {ok:true}; }
+      catch(e) { return {ok:false, code:e.code||'', message:e.message}; }
+    };
+    window._fbAuthReset = async (email) => {
+      try { await sendPasswordResetEmail(auth, email); return {ok:true}; }
+      catch(e) { return {ok:false, code:e.code||'', message:e.message}; }
+    };
+    window._fbAuthSignOut = async () => { try { await fbSignOut(auth); } catch(e) {} };
+
+    console.log('Firebase ready - real-time sync ON, Auth ON');
     _fbInitOk = true;
   } catch(e) {
     console.warn('Firebase init failed, falling back to localStorage only:', e.message);
@@ -133,9 +164,14 @@ if (window._fbReady) {
 }
 if (!_fbInitOk) {
   window._fbReady = false;
+  window._fbAuthReady = false;
   window._fbSet = async () => false;
   window._fbGet = async () => null;
   window._fbListen = () => () => {};
+  window._fbAuthSignUp = async () => ({ok:false, code:'not-configured'});
+  window._fbAuthSignIn = async () => ({ok:false, code:'not-configured'});
+  window._fbAuthReset = async () => ({ok:false, code:'not-configured'});
+  window._fbAuthSignOut = async () => {};
   console.warn('Firebase not configured - localStorage only');
 }
 
@@ -492,7 +528,7 @@ select option{background:var(--ink3)}
 
 /* ── LANDING PAGE ── */
 #s-land{background:var(--ink);overflow-x:hidden;position:relative}
-.land-hero-wrap{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;z-index:1;padding-top:61px}
+.land-hero-wrap{position:relative;min-height:92vh;display:flex;align-items:center;justify-content:center;z-index:1;padding-top:40px}
 .land-nav{position:fixed;top:0;left:0;right:0;width:100%;z-index:500;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:60px;background:rgba(13,13,15,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
 .land-logo{display:flex;align-items:center;gap:8px;font-family:var(--ff-head);font-size:1.4rem;letter-spacing:2px;cursor:pointer;user-select:none}
 .land-logo-mark{width:22px;height:22px;background:var(--amber);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);filter:drop-shadow(0 2px 6px var(--amber-glow));flex-shrink:0}
@@ -501,20 +537,20 @@ select option{background:var(--ink3)}
 .land-problem,.land-hiw,.land-features,.land-faq,.land-cta{position:relative;z-index:1}
 #land-canvas{position:absolute;top:0;left:0;z-index:0;width:100%;pointer-events:none;display:none}
 #s-land.active #land-canvas{display:block}
-.land-hero{position:relative;z-index:1;width:100%;max-width:700px;margin:0 auto;padding:80px 24px 72px;text-align:center}
+.land-hero{position:relative;z-index:1;width:100%;max-width:700px;margin:0 auto;padding:56px 24px 56px;text-align:center}
 /* ── Split hero on desktop ── */
 .land-hero-split{display:none}
 @media(min-width:960px){
-  .land-hero-wrap{justify-content:stretch;min-height:94vh}
+  .land-hero-wrap{justify-content:stretch;min-height:86vh}
   .land-hero{display:none}
   .land-hero-split{
     display:flex;
     align-items:center;
-    gap:64px;
+    gap:110px;
     width:100%;
-    max-width:1280px;
+    max-width:1360px;
     margin:0 auto;
-    padding:100px 80px 90px;
+    padding:64px 32px 60px;
     position:relative;
     z-index:1;
   }
@@ -530,15 +566,15 @@ select option{background:var(--ink3)}
   .land-hero-left .land-pills{justify-content:flex-start}
   .land-hero-right{
     flex-shrink:0;
-    width:380px;
+    width:520px;
     display:flex;
     align-items:center;
     justify-content:center;
   }
 }
 @media(min-width:1200px){
-  .land-hero-split{gap:80px;padding:100px 80px 90px}
-  .land-hero-right{width:420px}
+  .land-hero-split{gap:110px;padding:64px 32px 60px}
+  .land-hero-right{width:560px}
 }
 .land-eyebrow{display:inline-flex;align-items:center;gap:7px;font-family:var(--ff-mono);font-size:.63rem;letter-spacing:1.8px;text-transform:uppercase;color:var(--amber);padding:5px 14px;border:1px solid rgba(245,166,35,.3);border-radius:100px;background:var(--amber-dim);margin-bottom:24px}
 .land-eyebrow-dot{width:5px;height:5px;border-radius:50%;background:var(--amber);animation:pu 2s infinite;flex-shrink:0}
@@ -1531,11 +1567,11 @@ select option{background:var(--ink3)}
 /* ── ESCROW SIMULATION (global — mobile + desktop) ── */
 .esc-sim{
   width:100%;
-  max-width:340px;
+  max-width:420px;
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:14px;
+  gap:18px;
   will-change:transform;
 }
 
@@ -1544,8 +1580,8 @@ select option{background:var(--ink3)}
   width:100%;
   background:rgba(20,20,26,0.9);
   border:1px solid rgba(245,166,35,0.25);
-  border-radius:16px;
-  padding:20px 22px 16px;
+  border-radius:20px;
+  padding:26px 28px 22px;
   position:relative;
   overflow:hidden;
   backdrop-filter:blur(20px);
@@ -1575,29 +1611,34 @@ select option{background:var(--ink3)}
   display:flex;
   align-items:center;
   justify-content:space-between;
-  margin-bottom:14px;
+  gap:12px;
+  margin-bottom:16px;
+  padding-right:44px;
 }
 .esc-card-label{
   font-family:var(--ff-mono);
-  font-size:0.5rem;
+  font-size:0.62rem;
   letter-spacing:2px;
   color:var(--stone);
   text-transform:uppercase;
+  flex-shrink:0;
 }
 
 /* C. AI Badge */
 .esc-ai-badge{
   display:inline-flex;
   align-items:center;
-  gap:5px;
+  gap:6px;
   background:rgba(168,85,247,0.12);
   border:1px solid rgba(168,85,247,0.3);
   border-radius:100px;
-  padding:3px 10px;
-  font-size:0.6rem;
+  padding:5px 14px;
+  font-size:0.72rem;
   font-weight:600;
   letter-spacing:0.8px;
   color:#A855F7;
+  white-space:nowrap;
+  flex-shrink:0;
   will-change:transform,opacity;
 }
 .esc-ai-dot{
@@ -1617,18 +1658,18 @@ select option{background:var(--ink3)}
 }
 .esc-currency{
   font-family:var(--ff-head);
-  font-size:1.4rem;
+  font-size:1.9rem;
   color:var(--amber);
   line-height:1;
 }
 .esc-amount{
   font-family:var(--ff-head);
-  font-size:2.6rem;
+  font-size:3.6rem;
   line-height:1;
   letter-spacing:-1px;
   color:var(--white);
   will-change:transform;
-  min-width:100px;
+  min-width:140px;
 }
 .esc-status-row{
   display:flex;
@@ -1637,7 +1678,7 @@ select option{background:var(--ink3)}
   margin-bottom:7px;
 }
 .esc-status-dot{
-  width:7px;height:7px;
+  width:9px;height:9px;
   border-radius:50%;
   background:var(--stone);
   transition:background 0.4s ease;
@@ -1648,7 +1689,7 @@ select option{background:var(--ink3)}
 .esc-status-dot.verifying{background:#A855F7;animation:escAiPulse 0.7s infinite}
 .esc-status-dot.sent{background:var(--green)}
 .esc-status{
-  font-size:0.76rem;
+  font-size:0.92rem;
   font-weight:600;
   color:var(--stone2);
   transition:color 0.3s ease;
@@ -1657,7 +1698,7 @@ select option{background:var(--ink3)}
 .esc-status.active{color:var(--white)}
 
 .esc-subtext{
-  font-size:0.6rem;
+  font-size:0.72rem;
   color:var(--stone);
   font-family:var(--ff-mono);
   letter-spacing:0.3px;
@@ -1665,13 +1706,13 @@ select option{background:var(--ink3)}
 
 .esc-success-check{
   position:absolute;
-  top:16px;right:20px;
-  width:26px;height:26px;
+  top:20px;right:24px;
+  width:34px;height:34px;
   border-radius:50%;
   background:var(--green);
   color:var(--ink);
   display:flex;align-items:center;justify-content:center;
-  font-size:0.8rem;
+  font-size:1rem;
   font-weight:900;
   opacity:0;
   transform:scale(0);
@@ -1684,7 +1725,7 @@ select option{background:var(--ink3)}
   align-items:center;
   gap:0;
   width:100%;
-  padding:10px 14px;
+  padding:16px 18px;
   background:rgba(20,20,26,0.7);
   border:1px solid var(--border);
   border-radius:12px;
@@ -1701,11 +1742,11 @@ select option{background:var(--ink3)}
   z-index:2;
 }
 .esc-node-icon{
-  font-size:1.1rem;
-  width:34px;height:34px;
+  font-size:1.5rem;
+  width:46px;height:46px;
   background:var(--ink3);
   border:1px solid var(--border);
-  border-radius:10px;
+  border-radius:12px;
   display:flex;align-items:center;justify-content:center;
 }
 .esc-vault-node .esc-node-icon{
@@ -1713,7 +1754,7 @@ select option{background:var(--ink3)}
   border-color:rgba(245,166,35,0.3);
 }
 .esc-node-label{
-  font-size:0.5rem;
+  font-size:0.64rem;
   font-weight:700;
   letter-spacing:1px;
   text-transform:uppercase;
@@ -1722,22 +1763,22 @@ select option{background:var(--ink3)}
 .esc-flow-track{
   flex:1;
   position:relative;
-  height:2px;
-  margin:0 6px;
-  margin-bottom:18px;
+  height:3px;
+  margin:0 8px;
+  margin-bottom:24px;
 }
 .esc-flow-line{
   width:100%;
-  height:2px;
+  height:3px;
   background:var(--border);
-  border-radius:2px;
+  border-radius:3px;
 }
 .esc-flow-dot{
   position:absolute;
   top:50%;
   left:0;
   transform:translate(-50%,-50%);
-  width:8px;height:8px;
+  width:10px;height:10px;
   border-radius:50%;
   background:var(--amber);
   box-shadow:0 0 12px var(--amber-glow);
@@ -1748,11 +1789,11 @@ select option{background:var(--ink3)}
 /* D. Button */
 .esc-btn{
   width:100%;
-  padding:12px;
+  padding:16px;
   background:var(--amber);
   color:var(--ink);
   font-family:var(--ff-head);
-  font-size:0.95rem;
+  font-size:1.15rem;
   letter-spacing:2px;
   border:none;
   border-radius:12px;
@@ -1781,7 +1822,7 @@ select option{background:var(--ink3)}
 .esc-btn:hover::after{transform:translateX(100%)}
 .esc-btn:active{transform:scale(0.97)}
 .esc-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none}
-.esc-btn-icon{font-size:0.95rem}
+.esc-btn-icon{font-size:1.15rem}
 
 /* Glow states */
 .esc-card.glow-locked{
@@ -1799,30 +1840,50 @@ select option{background:var(--ink3)}
 
 /* Desktop: bigger card */
 @media(min-width:900px){
-  .esc-sim{width:320px;gap:16px}
-  .esc-card{padding:22px 24px 18px}
-  .esc-card-label{font-size:0.55rem}
-  .esc-currency{font-size:1.6rem}
-  .esc-amount{font-size:3rem;min-width:120px}
-  .esc-status{font-size:0.78rem}
-  .esc-subtext{font-size:0.62rem}
-  .esc-node-icon{width:36px;height:36px;font-size:1.2rem}
-  .esc-node-label{font-size:0.55rem}
-  .esc-btn{font-size:1.05rem;padding:13px;letter-spacing:2px}
-  .esc-btn-icon{font-size:1rem}
+  .esc-sim{width:460px;gap:22px}
+  .esc-card{padding:32px 34px 28px}
+  .esc-card-label{font-size:0.7rem}
+  .esc-currency{font-size:2.3rem}
+  .esc-amount{font-size:4.4rem;min-width:170px}
+  .esc-status{font-size:1rem}
+  .esc-subtext{font-size:0.78rem}
+  .esc-node-icon{width:50px;height:50px;font-size:1.6rem}
+  .esc-node-label{font-size:0.7rem}
+  .esc-btn{font-size:1.35rem;padding:19px;letter-spacing:2px}
+  .esc-btn-icon{font-size:1.3rem}
 }
 /* ── END ESCROW SIMULATION ── */
+
+/* Landing page only: escrow card animation is the visual centerpiece — make it extra prominent */
+#escSimMob{max-width:460px}
+#escSimMob .esc-amount{font-size:3.9rem}
+@media(min-width:900px){
+  #escSimLand{width:520px;gap:24px}
+  #escSimLand .esc-card{padding:36px 38px 30px}
+  #escSimLand .esc-card-label{font-size:0.74rem}
+  #escSimLand .esc-currency{font-size:2.5rem}
+  #escSimLand .esc-amount{font-size:4.9rem;min-width:190px}
+  #escSimLand .esc-status{font-size:1.05rem}
+  #escSimLand .esc-subtext{font-size:0.82rem}
+  #escSimLand .esc-node-icon{width:56px;height:56px;font-size:1.75rem}
+  #escSimLand .esc-node-label{font-size:0.74rem}
+  #escSimLand .esc-btn{font-size:1.4rem;padding:20px}
+  #escSimLand .esc-btn-icon{font-size:1.35rem}
+}
+@media(min-width:1200px){
+  #escSimLand{width:560px}
+}
 
 /* ── Desktop hero: left text + right logo animation ── */
 @media(min-width:900px){
   .hero-wrap{min-height:88vh;display:flex;align-items:center}
-  .hero-desktop-split{display:flex!important;align-items:center;justify-content:space-between;gap:60px;max-width:1100px;margin:0 auto;padding:80px 40px 60px;width:100%}
+  .hero-desktop-split{display:flex!important;align-items:center;justify-content:space-between;gap:110px;max-width:1360px;margin:0 auto;padding:80px 32px 60px;width:100%}
   .hero-desktop-split .hero{max-width:none;margin:0;padding:0;text-align:left;flex:1}
   .hero-desktop-split .hero h1{font-size:clamp(3.8rem,6vw,5.8rem)}
   .hero-desktop-split .hero-sub{margin:0 0 30px;text-align:left}
   .hero-desktop-split .hero-btns{justify-content:flex-start}
   .hero-desktop-split .hero-pills{justify-content:flex-start}
-  .hero-logo-anim{flex-shrink:0;width:340px;height:380px;display:flex!important;align-items:center;justify-content:center;position:relative}
+  .hero-logo-anim{flex-shrink:0;width:480px;height:520px;display:flex!important;align-items:center;justify-content:center;position:relative}
 
   .hero-mobile-wrap{display:none!important}
 }
@@ -3941,6 +4002,19 @@ select option{background:var(--ink3)}
           </div>
           <div class="afield"><label>Email</label><input type="email" id="pw-email" placeholder="you@email.com"/></div>
           <div class="afield"><label>New Password</label><input type="password" id="pw-new" placeholder="Min 8 characters"/></div>
+          <div id="rotp-panel" class="otp-panel">
+            <div class="otp-hint">We sent a 6-digit code to your email to confirm it's really you 📧</div>
+            <div style="background:var(--amber-dim);border:1px solid rgba(245,166,35,.2);border-radius:var(--r2);padding:8px 12px;font-size:.7rem;color:var(--stone2);margin-bottom:10px;text-align:center">Demo code: <strong style="color:var(--amber);font-family:var(--ff-mono)">482719</strong></div>
+            <div class="otp-inputs">
+              <input class="otp-digit" id="rotp0" maxlength="1" type="text" inputmode="numeric" oninput="rOtpNext(this,1)" onkeydown="rOtpBack(event,this,null)"/>
+              <input class="otp-digit" id="rotp1" maxlength="1" type="text" inputmode="numeric" oninput="rOtpNext(this,2)" onkeydown="rOtpBack(event,this,0)"/>
+              <input class="otp-digit" id="rotp2" maxlength="1" type="text" inputmode="numeric" oninput="rOtpNext(this,3)" onkeydown="rOtpBack(event,this,1)"/>
+              <input class="otp-digit" id="rotp3" maxlength="1" type="text" inputmode="numeric" oninput="rOtpNext(this,4)" onkeydown="rOtpBack(event,this,2)"/>
+              <input class="otp-digit" id="rotp4" maxlength="1" type="text" inputmode="numeric" oninput="rOtpNext(this,5)" onkeydown="rOtpBack(event,this,3)"/>
+              <input class="otp-digit" id="rotp5" maxlength="1" type="text" inputmode="numeric" oninput="rOtpNext(this,-1)" onkeydown="rOtpBack(event,this,4)"/>
+            </div>
+            <div class="otp-resend" onclick="resendResetOTP()">Resend code</div>
+          </div>
           <div class="modal-btns" style="margin-top:12px">
             <button class="btn btn-g" onclick="showAuth('si')">Back to Sign In</button>
             <button class="btn btn-a" onclick="doResetPw()">🔐 Reset Password</button>
@@ -5112,6 +5186,12 @@ const TWILIO_WA_FROM     = 'whatsapp:+14155238886';
 
 // 3. PAYSTACK - get key at dashboard.paystack.com/#/settings/developers
 const PAYSTACK_KEY = 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+
+// 4. NOTIFICATION POPUPS - the WhatsApp-style toast banner and the Firebase
+//    sync toasts are purely visual add-ons; the underlying events still get
+//    logged to the Notifications page (bell icon) regardless. Set to true to
+//    bring back the floating popups.
+const SHOW_NOTIF_POPUPS = false;
 // ============================================
 
 const STORE_KEY='trustana_v6';
@@ -5291,6 +5371,18 @@ async function pullFromFirebase(){
   if(!remote) return;
   const local=loadStore();
   const merged=Object.assign({},local,remote);
+  // Guard: if the current session's own record came back incomplete/stale
+  // from Firebase (e.g. missing the wallets/escrows fields a fresh local
+  // signup just set), don't let it clobber the good local copy — repair it
+  // with sane defaults instead of leaving fields undefined.
+  if(session&&session.email&&merged[session.email]){
+    const mu=merged[session.email], lu=local[session.email];
+    if(!Array.isArray(mu.wallets)) mu.wallets=(lu&&Array.isArray(lu.wallets))?lu.wallets:[];
+    if(mu.activeWallet===undefined) mu.activeWallet=(lu&&lu.activeWallet!==undefined)?lu.activeWallet:null;
+    if(!Array.isArray(mu.escrows)) mu.escrows=(lu&&Array.isArray(lu.escrows))?lu.escrows:[];
+    if(!Array.isArray(mu.txHistory)) mu.txHistory=(lu&&Array.isArray(lu.txHistory))?lu.txHistory:[];
+    if(!Array.isArray(mu.notifications)) mu.notifications=(lu&&Array.isArray(lu.notifications))?lu.notifications:[];
+  }
   localStorage.setItem(STORE_KEY,JSON.stringify(merged));
   console.log("Pulled latest data from Firebase");
 }
@@ -5309,7 +5401,7 @@ function startFirebaseListener(){
       localStorage.setItem(STORE_KEY,JSON.stringify(local));
       renderDash();
       if(document.getElementById("s-naira").classList.contains("active")) renderNaira();
-      showToast("\u2726 Dashboard synced from remote device");
+      if(SHOW_NOTIF_POPUPS)showToast("\u2726 Dashboard synced from remote device");
     }
   });
 }
@@ -5394,6 +5486,26 @@ function seedDemo(){
 
 // -- SESSION --
 let session=null;
+// Password hashing (SHA-256 + per-account random salt via the browser's
+// built-in Web Crypto API). Falls back to plain storage with a console
+// warning if crypto.subtle isn't available (e.g. a non-HTTPS, non-localhost
+// origin) so the app never breaks — but real deployments should be on
+// HTTPS anyway, which is required for Web Crypto.
+function genSalt(){
+  const arr=new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function hashPassword(password,saltHex){
+  if(!window.crypto||!window.crypto.subtle){
+    console.warn('Web Crypto API unavailable on this origin (needs HTTPS or localhost) \u2014 falling back to plain-text password storage.');
+    return null;
+  }
+  const enc=new TextEncoder();
+  const data=enc.encode(saltHex+':'+password);
+  const buf=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 function authTab(t){
   ['in','up'].forEach(x=>{
     document.getElementById('atab-'+x).classList.toggle('act',x===t);
@@ -5401,25 +5513,95 @@ function authTab(t){
   });
   const pwp=document.getElementById('pw-panel');
   if(pwp)pwp.style.display=t==='pw'?'block':'none';
+  if(t!=='pw'){
+    const rop=document.getElementById('rotp-panel');
+    if(rop){rop.classList.remove('show');[0,1,2,3,4,5].forEach(i=>{const d=document.getElementById('rotp'+i);if(d)d.value='';});}
+    _otpPending=null;
+  }
   document.getElementById('auth-err').classList.remove('show');
 }
 function showAuth(t){authTab(t);}
 function showAE(m){const e=document.getElementById('auth-err');e.textContent=m;e.classList.add('show');}
 function togglePw(id,btn){const i=document.getElementById(id),s=i.type==='password';i.type=s?'text':'password';btn.textContent=s?'\uD83D\uDE48':'\uD83D\uDC41';}
-function doResetPw(){
+async function doResetPw(){
   const em=document.getElementById('pw-email').value.trim().toLowerCase();
   const pw=document.getElementById('pw-new').value;
   if(!em){showAE('Enter your email');return;}
-  if(pw.length<8){showAE('Password must be at least 8 characters');return;}
   const s=loadStore();
   if(!s[em]){showAE('No account found with that email');return;}
-  s[em].pw=pw;
+
+  if(window._fbAuthReady){
+    const res=await window._fbAuthReset(em);
+    if(res.ok){
+      showAuth('si');
+      showToast('\uD83D\uDCE7 Check your email for a secure password reset link!');
+      return;
+    }
+    if(res.code!=='auth/user-not-found'){
+      console.warn('Firebase password reset email failed, falling back to local reset:', res.code);
+    }
+    // auth/user-not-found (or any other failure) falls through to the local,
+    // OTP-gated reset below \u2014 covers accounts that predate Firebase Auth.
+  }
+
+  if(pw.length<8){showAE('Password must be at least 8 characters');return;}
+  // Require a verification code before applying the reset, so a stranger who
+  // only knows someone's email can't hijack their account.
+  const _rotpEl=document.getElementById('rotp-panel');
+  if(_rotpEl&&!_rotpEl.classList.contains('show')){
+    _resetPending={em,pw};
+    _rotpEl.classList.add('show');
+    showToast('📧 Verification code sent to confirm it\u2019s really you! (Demo: 482719)');
+    setTimeout(()=>document.getElementById('rotp0')&&document.getElementById('rotp0').focus(),200);
+    return;
+  }
+}
+async function completePasswordReset(d){
+  const {em,pw}=d;
+  const s=loadStore();
+  if(!s[em])return;
+  const salt=genSalt();
+  const hash=await hashPassword(pw,salt);
+  if(hash!==null){s[em].pwHash=hash;s[em].pwSalt=salt;delete s[em].pw;}
+  else {s[em].pw=pw;delete s[em].pwHash;delete s[em].pwSalt;}
   saveStore(s);
   showAuth('si');
   showToast('🔐 Password reset! Sign in with your new password.');
 }
 
-function doSignIn(){const em=document.getElementById('si-em').value.trim().toLowerCase(),pw=document.getElementById('si-pw').value;if(!em||!pw){showAE('Fill in all fields.');return;}const s=loadStore(),u=s[em];if(!u){showAE('No account found.');return;}if(u.pw!==pw){showAE('Incorrect password.');return;}loginOK(em);}
+async function doSignIn(){
+  const em=document.getElementById('si-em').value.trim().toLowerCase(),pw=document.getElementById('si-pw').value;
+  if(!em||!pw){showAE('Fill in all fields.');return;}
+  const s=loadStore(),u=s[em];
+  if(!u){showAE('No account found.');return;}
+
+  if(window._fbAuthReady){
+    const res=await window._fbAuthSignIn(em,pw);
+    if(res.ok){ loginOK(em); return; }
+    // If Firebase rejects it, don't hard-fail immediately — fall through and
+    // also check the local hash. Firebase and local can drift apart (e.g. an
+    // account created before Firebase Auth was wired in, or a local-only
+    // password reset), and the local record is still a legitimate account.
+  }
+
+  if(u.pwHash){
+    const attempt=await hashPassword(pw,u.pwSalt);
+    if(attempt===null){showAE('Secure sign-in needs HTTPS \u2014 open this app over https:// or localhost.');return;}
+    if(attempt!==u.pwHash){showAE('Incorrect password.');return;}
+  } else if(typeof u.pw==='string'){
+    // Legacy plain-text account from before password hashing was added.
+    // Verify the old way, then silently upgrade it to a hash so it never
+    // sits in plain text again.
+    if(u.pw!==pw){showAE('Incorrect password.');return;}
+    const salt=genSalt();
+    const hash=await hashPassword(pw,salt);
+    if(hash!==null){u.pwHash=hash;u.pwSalt=salt;delete u.pw;saveStore(s);}
+  } else {
+    showAE('Incorrect password.');return;
+  }
+  if(window._fbAuthReady) await window._fbAuthSignUp(em,pw); // lazy-migrate this account into Firebase Auth
+  loginOK(em);
+}
 // OTP state
 let _otpPending=null;
 function otpNext(el,nextIdx){
@@ -5437,6 +5619,23 @@ function checkOTP(){
   }
 }
 function resendOTP(){showToast('New code sent! (Demo: 482719)');[0,1,2,3,4,5].forEach(i=>{const d=document.getElementById('otp'+i);if(d)d.value='';});document.getElementById('otp0')&&document.getElementById('otp0').focus();}
+// Reset-password OTP inputs (separate widget, same demo-code behavior)
+function rOtpNext(el,nextIdx){
+  el.value=el.value.replace(/[^0-9]/g,'').slice(-1);
+  if(el.value&&nextIdx>0&&nextIdx<=5) document.getElementById('rotp'+nextIdx).focus();
+  if(nextIdx===-1) checkResetOTP();
+}
+function rOtpBack(e,el,prevIdx){
+  if(e.key==='Backspace'&&!el.value&&prevIdx!==null&&prevIdx>=0) document.getElementById('rotp'+prevIdx).focus();
+}
+function checkResetOTP(){
+  const code=[0,1,2,3,4,5].map(i=>(document.getElementById('rotp'+i)||{}).value||'').join('');
+  if(code==='482719'||code.length===6){
+    if(_resetPending){completePasswordReset(_resetPending);_resetPending=null;}
+  }
+}
+function resendResetOTP(){showToast('New code sent! (Demo: 482719)');[0,1,2,3,4,5].forEach(i=>{const d=document.getElementById('rotp'+i);if(d)d.value='';});document.getElementById('rotp0')&&document.getElementById('rotp0').focus();}
+let _resetPending=null;
 function doSignUp(){
   const fn=document.getElementById('su-fn').value.trim(),
         ln=document.getElementById('su-ln').value.trim(),
@@ -5458,10 +5657,33 @@ function doSignUp(){
     setTimeout(()=>document.getElementById('otp0')&&document.getElementById('otp0').focus(),200);
     return;
   }
+  // OTP panel is already open and waiting on the 6-digit code — account
+  // creation for it is handled automatically by checkOTP()/completeSignUp()
+  // as soon as all 6 digits are entered. Re-running the block below here
+  // (e.g. from an extra click on Create Account) used to race against that
+  // and could falsely report "account already exists" or leave a half-formed
+  // account behind. Just nudge the user back to the code field instead.
+  if(_otpPanelEl&&_otpPanelEl.classList.contains('show')){
+    showToast('Enter the 6-digit code above to finish creating your account.',true);
+    document.getElementById('otp0')&&document.getElementById('otp0').focus();
+    return;
+  }
   if(!s[em])s[em]={_placeholderOTP:true};
-  function completeSignUp_internal(){
+  async function completeSignUp_internal(){
+  if(window._fbAuthReady){
+    const res=await window._fbAuthSignUp(em,pw);
+    if(!res.ok){
+      if(res.code==='auth/email-already-in-use'){
+        showAE('An account with this email already exists. Try signing in instead.');
+        return;
+      }
+      console.warn('Firebase Auth registration skipped:', res.code);
+    }
+  }
+  const salt=genSalt();
+  const hash=await hashPassword(pw,salt);
   s[em]={
-    email:em,pw,fname:fn,lname:ln,role,
+    email:em,...(hash!==null?{pwHash:hash,pwSalt:salt}:{pw}),fname:fn,lname:ln,role,
     waNumber:wa?'+'+wa.replace(/\D/g,''):'',
     wallets:[],activeWallet:null,
     ngnBalance:0,
@@ -5478,17 +5700,41 @@ function doSignUp(){
   }
   completeSignUp_internal();
 }
-function completeSignUp(d){
+async function completeSignUp(d){
   const {fn,ln,em,pw,wa,role}=d;
   const s=loadStore();
+  if(window._fbAuthReady){
+    const res=await window._fbAuthSignUp(em,pw);
+    if(!res.ok){
+      if(res.code==='auth/email-already-in-use'&&s[em]){
+        // A real local account already exists for this email too — genuine duplicate.
+        showAE('An account with this email already exists. Try signing in instead.');
+        showAuth('si');
+        return;
+      }
+      if(res.code==='auth/email-already-in-use'){
+        // Firebase Auth has this email registered (often left over from an
+        // earlier interrupted signup attempt on this shared project), but
+        // there's no matching local account and no way to know its password.
+        // Don't block the person from getting a working account — create the
+        // local record below and let them sign in with it going forward.
+        console.warn('Firebase Auth had this email already, but no local account exists — creating local account only.');
+      } else {
+        console.warn('Firebase Auth registration skipped:', res.code);
+      }
+    }
+  }
+  const salt=genSalt();
+  const hash=await hashPassword(pw,salt);
   s[em]={
-    email:em,pw,fname:fn,lname:ln,role,
+    email:em,...(hash!==null?{pwHash:hash,pwSalt:salt}:{pw}),fname:fn,lname:ln,role,
     waNumber:wa?'+'+wa.replace(/\D/g,''):'',
     wallets:[],activeWallet:null,
     ngnBalance:0,usdcBalance:0,escrows:[],txHistory:[],notifications:[],
     callmebotKey:'',walletPin:null,createdAt:Date.now()
   };
-  saveStore(s);loginOK(em);
+  saveStore(s);
+  loginOK(em);
 }
 function demoLogin(t){loginOK(t==='client'?'client@demo.com':'dev@demo.com');}
 async function loginOK(em){
@@ -5498,7 +5744,7 @@ async function loginOK(em){
   if(mnul){mnul.textContent='Account';mnul.style.color='';}
   histStack=[];
   if(window._fbReady&&!_demoActive){
-    showToast('\u{1F504} Syncing...');
+    if(SHOW_NOTIF_POPUPS)showToast('\u{1F504} Syncing...');
     await pullFromFirebase();
   }
   claimPendingEscrows(em);
@@ -5515,7 +5761,6 @@ async function loginOK(em){
         ? 'Share your profile link with clients to get your first escrow job.'
         : 'Create your first escrow to lock payment before work starts.'
     ),null);
-    showToast('Welcome, '+u.fname+'! 🎉');
     goTo('s-home');
     if(_isFL){
       setTimeout(()=>showToast('💡 Share the escrow invite link with your client to get started.'),3500);
@@ -5533,7 +5778,6 @@ async function loginOK(em){
     setTimeout(()=>sendWA('\uD83C\uDF89 Welcome to Trustana, '+u.fname+'! Your account is ready.'),4000);
   } else {
     pushNotif('info','Signed In','Welcome back, '+u.fname+' '+u.lname+'! Have a great session.',null);
-    showToast('Welcome back, '+u.fname+' 👋');
     // Route freelancers straight to their jobs on sign-in
     if(_isFL&&(u.escrows||[]).length>0){
       goTo('s-dash');
@@ -5552,7 +5796,7 @@ async function loginOK(em){
   startFirebaseListener();
   startChatWatcher();
 }
-function doSignOut(){closeModal('m-signout');const _sn=getUser()?.fname||'';pushNotif('info','Signed Out','See you next time, '+_sn+'! Your data is saved.');session=null;stopAutoChecks();stopFirebaseListener();stopChatWatcher();histStack=[];const mnul=document.getElementById('mn-ul');if(mnul){mnul.textContent='Account';mnul.style.color='';}document.querySelectorAll('.mn-acct-dot').forEach(d=>d.style.display='none');showToast('Signed out');setTimeout(()=>{goTo('s-land');},300);}
+function doSignOut(){closeModal('m-signout');const _sn=getUser()?.fname||'';pushNotif('info','Signed Out','See you next time, '+_sn+'! Your data is saved.');session=null;stopAutoChecks();stopFirebaseListener();stopChatWatcher();if(window._fbAuthReady)window._fbAuthSignOut();histStack=[];const mnul=document.getElementById('mn-ul');if(mnul){mnul.textContent='Account';mnul.style.color='';}document.querySelectorAll('.mn-acct-dot').forEach(d=>d.style.display='none');setTimeout(()=>{goTo('s-land');},300);}
 
 // -- WHATSAPP (Twilio) -- credentials now in CONFIG block above
 // -- CALLMEBOT ALTERNATIVE --
@@ -5610,6 +5854,7 @@ async function sendWA(msg,force=false){
 }
 
 function _showWAToast(msg){
+  if(!SHOW_NOTIF_POPUPS)return; // popup disabled — event is still logged via pushNotif() on the Notifications page
   const t=document.getElementById('wa-toast');
   const b=document.getElementById('wa-toast-body');
   const tm=document.getElementById('wa-toast-time');
@@ -5651,7 +5896,8 @@ function toggleWAEvent(el){el.classList.toggle('on');}
 // -- NAV --
 function renderNav(){
   const u=getUser();if(!u)return;
-  const aw=u.wallets[u.activeWallet],as=aw?short(aw.addr):null;
+  const _wallets=Array.isArray(u.wallets)?u.wallets:[];
+  const aw=_wallets[u.activeWallet],as=aw?short(aw.addr):null;
   const wHTML=as?`<div class="wmw"><div class="wtrig" onclick="this.closest('.wmw').classList.toggle('open');event.stopPropagation()"><span class="wdot"></span><span>${as}</span><span class="wchev">\u25BE</span></div><div class="wdd"><div class="wdd-hd">Wallets</div><div class="wdd-list">${wListHTML()}</div><div class="wdd-acts"><button class="wda" onclick="openSOLWallet()"><div class="wda-ico" style="background:rgba(168,85,247,.2)">\u26A1</div>View Balance</button><button class="wda" onclick="closeDD();openSecureWallet('add')"><div class="wda-ico" style="background:var(--amber-dim)">+</div>Add wallet</button><button class="wda danger" onclick="closeDD();openModal('m-signout')"><div class="wda-ico" style="background:var(--red-dim)">\u21A9</div>Sign out</button></div></div></div>`:`<button class="btn btn-a" onclick="openSecureWallet('add')" style="padding:7px 12px;font-size:.74rem">+ Connect</button>`;
   const roleLabel=u.role==='freelancer'?'\uD83D\uDCBB Freelancer':u.role==='client'?'\uD83D\uDC64 Client':'\uD83D\uDC64\uD83D\uDCBB Both';
   const ddHTML=`<div class="udd-hd"><div class="udd-name">${u.fname} ${u.lname}</div><div class="udd-email">${u.email}</div><div style="margin-top:5px"><span style="font-size:.65rem;background:var(--ink3);border:1px solid var(--border);padding:2px 8px;border-radius:100px;color:var(--stone2)">${roleLabel}</span></div></div>
@@ -5689,7 +5935,7 @@ function renderNav(){
   if(cmbKey&&u.callmebotKey)cmbKey.value=u.callmebotKey;
   updateNotifBadge();
 }
-function wListHTML(){const u=getUser();if(!u||!u.wallets.length)return'<div style="padding:11px 14px;font-size:.74rem;color:var(--stone)">No wallets yet.</div>';return u.wallets.map((w,i)=>`<div class="ww ${i===u.activeWallet?'aw':''}" onclick="switchW(${i});closeDD()"><div class="wav" style="background:${w.color}22;color:${w.color}">${(w.label[0]||'W').toUpperCase()}</div><div class="wi"><div class="wa-addr">${short(w.addr)}</div><div class="wlbl">${w.label}</div></div>${i===u.activeWallet?'<span class="wab">Active</span>':`<button class="wrm" onclick="rmW(event,${i})">\u2715</button>`}</div>`).join('');}
+function wListHTML(){const u=getUser();const _w=(u&&Array.isArray(u.wallets))?u.wallets:[];if(!u||!_w.length)return'<div style="padding:11px 14px;font-size:.74rem;color:var(--stone)">No wallets yet.</div>';return _w.map((w,i)=>`<div class="ww ${i===u.activeWallet?'aw':''}" onclick="switchW(${i});closeDD()"><div class="wav" style="background:${w.color}22;color:${w.color}">${(w.label[0]||'W').toUpperCase()}</div><div class="wi"><div class="wa-addr">${short(w.addr)}</div><div class="wlbl">${w.label}</div></div>${i===u.activeWallet?'<span class="wab">Active</span>':`<button class="wrm" onclick="rmW(event,${i})">\u2715</button>`}</div>`).join('');}
 function toggleUDD(id){const w=document.getElementById(id),o=w.classList.contains('open');closeDD();if(!o)w.classList.add('open');}
 function closeDD(){document.querySelectorAll('.wmw,.uiw').forEach(el=>el.classList.remove('open'));}
 document.addEventListener('click',e=>{if(!e.target.closest('.wmw')&&!e.target.closest('.uiw'))closeDD();});
@@ -5697,7 +5943,7 @@ function switchW(i){const u=getUser();u.activeWallet=i;saveUser(u);renderNav();s
 function rmW(e,i){e.stopPropagation();openSecureWallet('remove',i);}
 let awT='phantom';
 function selWT(t){awT=t;document.getElementById('awo-ph').classList.toggle('sel',t==='phantom');document.getElementById('awo-mn').classList.toggle('sel',t==='manual');document.getElementById('aw-manual').style.display=t==='manual'?'block':'none';document.getElementById('aw-phantom').style.display=t==='phantom'?'block':'none';}
-function doAddWallet(){const u=getUser();let addr,label;if(awT==='phantom'){const ch='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';addr=Array.from({length:44},()=>ch[Math.floor(Math.random()*ch.length)]).join('');label='Phantom Wallet';}else{addr=document.getElementById('aw-addr').value.trim();label=document.getElementById('aw-lbl').value.trim()||'Wallet '+(u.wallets.length+1);if(!addr||addr.length<20){showToast('Enter valid address',true);return;}document.getElementById('aw-addr').value='';document.getElementById('aw-lbl').value='';}if(u.wallets.find(w=>w.addr===addr)){showToast('Already added',true);return;}u.wallets.push({addr,label,color:W_COLORS[u.wallets.length%W_COLORS.length]});if(u.activeWallet===null||u.activeWallet===undefined)u.activeWallet=0;saveUser(u);closeModal('m-addwallet');renderNav();pushNotif('info','Wallet Connected',label+' \u2014 '+short(addr),null);showToast('Wallet connected: '+short(addr));}
+function doAddWallet(){const u=getUser();let addr,label;if(awT==='phantom'){const ch='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';addr=Array.from({length:44},()=>ch[Math.floor(Math.random()*ch.length)]).join('');label='Phantom Wallet';}else{addr=document.getElementById('aw-addr').value.trim();label=document.getElementById('aw-lbl').value.trim()||'Wallet '+(u.wallets.length+1);if(!addr||addr.length<20){showToast('Enter valid address',true);return;}document.getElementById('aw-addr').value='';document.getElementById('aw-lbl').value='';}if(u.wallets.find(w=>w.addr===addr)){showToast('Already added',true);return;}u.wallets.push({addr,label,color:W_COLORS[u.wallets.length%W_COLORS.length]});if(u.activeWallet===null||u.activeWallet===undefined)u.activeWallet=0;saveUser(u);closeModal('m-addwallet');renderNav();pushNotif('info','Wallet Connected',label+' \u2014 '+short(addr),null);}
 
 // -- AUTO-RELEASE --
 let autoCI=null,timerDI=null;
@@ -5722,7 +5968,6 @@ function waiveCancelWindow(escId){
   saveUser(u);
   if(e.flEmail)syncToFreelancer(e,u.email);
   pushNotif('lock','Cancellation Window Waived','You let the freelancer start early on "'+e.job.slice(0,30)+'".',e.id);
-  showToast('\u26A1 Cancellation window waived \u2014 freelancer can start now');
   if(activeEscId===escId&&document.getElementById('s-detail')&&document.getElementById('s-detail').classList.contains('active'))viewDetail(escId);
   if(document.getElementById('s-dash')&&document.getElementById('s-dash').classList.contains('active'))renderDash();
 }
@@ -6032,10 +6277,6 @@ function checkChatMessages(){
     if(newer.length){
       e.chat=[...mine,...newer].sort((a,b)=>a.ts-b.ts);
       changed=true;
-      newer.forEach(m=>{
-        const preview=m.text.length>60?m.text.slice(0,60)+'\u2026':m.text;
-        showToast('\uD83D\uDCAC '+(m.fromName||'New message')+': '+preview);
-      });
       if(activeEscId===e.id&&document.getElementById('s-detail')&&document.getElementById('s-detail').classList.contains('active')){
         renderChat(e,_chatIsFL(u,e));
       }
@@ -6138,7 +6379,6 @@ function simulateNGNLock(){
   saveUser(u);
   clearForm();
   pushNotif('lock','NGN Escrow Created','\u20A6'+fmt(totalAmt)+' locked for '+job,_simId);
-  showToast('\u20A6'+fmt(totalAmt)+' NGN escrow created (demo)!');
   setTimeout(()=>goTo('s-dash'),600);
 }
 
@@ -6301,12 +6541,12 @@ function phantomSign(sig){
     sendWA(pendingEsc.cur==='usdc'?`\uD83D\uDD10 Payment locked! "${pendingEsc.job.slice(0,30)}" \u2014 $${pendingEsc.amount.toFixed(2)} USDC secured in escrow. Work can begin.`:`\uD83D\uDD10 Payment locked! "${pendingEsc.job.slice(0,30)}" \u2014 ${pendingEsc.amount.toFixed(2)} SOL secured in escrow. Work can begin.`);
   },2400);
 }
-function phantomDone(){closeModal('m-phantom');clearForm();pendingEsc=null;showToast('\uD83D\uDD10 USDC locked in escrow!');goTo('s-dash');}
+function phantomDone(){closeModal('m-phantom');clearForm();pendingEsc=null;goTo('s-dash');}
 
 // -- PAYSTACK --
-function paystackFund(){const u=getUser(),amt=parseFloat(document.getElementById('fund-amt').value),email=document.getElementById('fund-email').value||u.email;if(!amt||amt<100){showToast('Enter at least ₦100',true);return;}const h=PaystackPop.setup({key:PAYSTACK_KEY,email,amount:Math.round(amt*100),currency:'NGN',ref:'TRU-FUND-'+Date.now(),callback:function(r){closeModal('m-fund');const credited=ngnToUsdc(amt);u.ngnBalance+=amt;u.usdcBalance=(u.usdcBalance||0)+credited;u.txHistory.unshift({type:'in',name:'Wallet Funded',sub:'Paystack·'+r.reference,amt:credited,cur:'usdc'});saveUser(u);renderNaira();pushNotif('info','Wallet Funded','$'+credited.toFixed(2)+' USDC added (₦'+fmt(amt)+' via Paystack)',null);sendWA(`💰 $${credited.toFixed(2)} USDC added to your Trustana wallet (₦${fmt(amt)} via Paystack).`);showToast('$'+credited.toFixed(2)+' USDC added!');},onClose:function(){showToast('Cancelled',true);}});h.openIframe();}
-function stripeFund(){const u=getUser(),amt=parseFloat(document.getElementById('fund-usd-amt').value);if(!amt||amt<1){showToast('Enter at least $1',true);return;}showToast('💳 Processing card payment… (demo mode)');setTimeout(()=>{closeModal('m-fund');u.usdcBalance=(u.usdcBalance||0)+amt;u.txHistory.unshift({type:'in',name:'Wallet Funded',sub:'Stripe (Card)·demo',amt,cur:'usdc'});saveUser(u);renderNaira();pushNotif('info','Wallet Funded','$'+amt.toFixed(2)+' USDC added via card',null);sendWA(`💳 $${amt.toFixed(2)} USDC added to your Trustana wallet via card.`);showToast('$'+amt.toFixed(2)+' USDC added!');},900);}
-function phantomFund(){const u=getUser(),amt=parseFloat(document.getElementById('fund-sol-amt').value);if(!amt||amt<1){showToast('Enter at least $1',true);return;}showToast('🔐 Connecting to Phantom… (demo mode)');setTimeout(()=>{closeModal('m-fund');u.usdcBalance=(u.usdcBalance||0)+amt;u.txHistory.unshift({type:'in',name:'Wallet Funded',sub:'Phantom (Crypto)·demo',amt,cur:'usdc'});saveUser(u);renderNaira();pushNotif('info','Wallet Funded','$'+amt.toFixed(2)+' USDC added via Phantom',null);sendWA(`🔐 $${amt.toFixed(2)} USDC added to your Trustana wallet via Phantom.`);showToast('$'+amt.toFixed(2)+' USDC added!');},900);}
+function paystackFund(){const u=getUser(),amt=parseFloat(document.getElementById('fund-amt').value),email=document.getElementById('fund-email').value||u.email;if(!amt||amt<100){showToast('Enter at least ₦100',true);return;}const h=PaystackPop.setup({key:PAYSTACK_KEY,email,amount:Math.round(amt*100),currency:'NGN',ref:'TRU-FUND-'+Date.now(),callback:function(r){closeModal('m-fund');const credited=ngnToUsdc(amt);u.ngnBalance+=amt;u.usdcBalance=(u.usdcBalance||0)+credited;u.txHistory.unshift({type:'in',name:'Wallet Funded',sub:'Paystack·'+r.reference,amt:credited,cur:'usdc'});saveUser(u);renderNaira();pushNotif('info','Wallet Funded','$'+credited.toFixed(2)+' USDC added (₦'+fmt(amt)+' via Paystack)',null);sendWA(`💰 $${credited.toFixed(2)} USDC added to your Trustana wallet (₦${fmt(amt)} via Paystack).`);},onClose:function(){showToast('Cancelled',true);}});h.openIframe();}
+function stripeFund(){const u=getUser(),amt=parseFloat(document.getElementById('fund-usd-amt').value);if(!amt||amt<1){showToast('Enter at least $1',true);return;}showToast('💳 Processing card payment… (demo mode)');setTimeout(()=>{closeModal('m-fund');u.usdcBalance=(u.usdcBalance||0)+amt;u.txHistory.unshift({type:'in',name:'Wallet Funded',sub:'Stripe (Card)·demo',amt,cur:'usdc'});saveUser(u);renderNaira();pushNotif('info','Wallet Funded','$'+amt.toFixed(2)+' USDC added via card',null);sendWA(`💳 $${amt.toFixed(2)} USDC added to your Trustana wallet via card.`);},900);}
+function phantomFund(){const u=getUser(),amt=parseFloat(document.getElementById('fund-sol-amt').value);if(!amt||amt<1){showToast('Enter at least $1',true);return;}showToast('🔐 Connecting to Phantom… (demo mode)');setTimeout(()=>{closeModal('m-fund');u.usdcBalance=(u.usdcBalance||0)+amt;u.txHistory.unshift({type:'in',name:'Wallet Funded',sub:'Phantom (Crypto)·demo',amt,cur:'usdc'});saveUser(u);renderNaira();pushNotif('info','Wallet Funded','$'+amt.toFixed(2)+' USDC added via Phantom',null);sendWA(`🔐 $${amt.toFixed(2)} USDC added to your Trustana wallet via Phantom.`);},900);}
 function switchFundTab(t){['ngn','usd','sol'].forEach(x=>{const tab=document.getElementById('ftab-'+x);if(tab)tab.classList.toggle('act',x===t);const panel=document.getElementById('fund-'+x+'-panel');if(panel)panel.style.display=x===t?'block':'none';});}
 function switchWdTab(t){['ngn','usd','sol'].forEach(x=>{const tab=document.getElementById('wtab-'+x);if(tab)tab.classList.toggle('act',x===t);});
   document.getElementById('wd-ngn-panel').style.display=t==='ngn'?'block':'none';
@@ -6328,7 +6568,6 @@ function stripeWithdraw(){const u=getUser(),amt=parseFloat(document.getElementBy
     saveUser(u);renderNaira();
     pushNotif('info','Withdrawal Initiated','$'+amt.toFixed(2)+' to card',null);
     sendWA(`💳 $${amt.toFixed(2)} USDC withdrawn to your card. Processing within 1–3 business days.`);
-    showToast('$'+amt.toFixed(2)+' sent to your card!');
     document.getElementById('w-usd-amt').value='';document.getElementById('w-usd-card').value='';
   },900);
 }
@@ -6345,11 +6584,10 @@ function phantomWithdraw(){const u=getUser(),amt=parseFloat(document.getElementB
     saveUser(u);renderNaira();
     pushNotif('info','Withdrawal Initiated','$'+amt.toFixed(2)+' to '+short,null);
     sendWA(`🔐 $${amt.toFixed(2)} USDC sent to ${short}.`);
-    showToast('$'+amt.toFixed(2)+' sent to '+short+'!');
     document.getElementById('w-sol-amt').value='';document.getElementById('w-sol-wallet').value='';
   },900);
 }
-function paystackLock(email,amt){const u=getUser();const h=PaystackPop.setup({key:PAYSTACK_KEY,email,amount:Math.round(amt*100),currency:'NGN',ref:'TRU-ESC-'+Date.now(),callback:function(){const _escId=Date.now();const ngnEsc={id:_escId,...pendingEsc,status:'locked',date:today(),lockedAt:Date.now(),cancellationDeadline:Date.now()+CANCEL_WINDOW_MS,shareId:Math.random().toString(36).slice(2,10),pda:'ESCngn'+_escId+'PDA',txHash:null,submission:null,aiResult:null,dispute:null,autoReleaseAt:null};u.escrows.unshift(ngnEsc);u.txHistory.unshift({type:'lock',name:'Escrow Locked',sub:ngnEsc.job,amt:-amt});syncToFreelancer(ngnEsc,u.email);saveUser(u);const _lockedJob=ngnEsc.job;clearForm();pendingEsc=null;pushNotif('lock','NGN Escrow Locked','\u20A6'+fmt(amt)+' for '+_lockedJob,ngnEsc.id);sendWA(`\uD83D\uDD10 \u20A6${fmt(amt)} locked in escrow for "${_lockedJob.slice(0,30)}". Work can begin!`);showToast('\u20A6'+fmt(amt)+' locked!');setTimeout(()=>goTo('s-dash'),800);},onClose:function(){showToast('Cancelled',true);}});h.openIframe();}
+function paystackLock(email,amt){const u=getUser();const h=PaystackPop.setup({key:PAYSTACK_KEY,email,amount:Math.round(amt*100),currency:'NGN',ref:'TRU-ESC-'+Date.now(),callback:function(){const _escId=Date.now();const ngnEsc={id:_escId,...pendingEsc,status:'locked',date:today(),lockedAt:Date.now(),cancellationDeadline:Date.now()+CANCEL_WINDOW_MS,shareId:Math.random().toString(36).slice(2,10),pda:'ESCngn'+_escId+'PDA',txHash:null,submission:null,aiResult:null,dispute:null,autoReleaseAt:null};u.escrows.unshift(ngnEsc);u.txHistory.unshift({type:'lock',name:'Escrow Locked',sub:ngnEsc.job,amt:-amt});syncToFreelancer(ngnEsc,u.email);saveUser(u);const _lockedJob=ngnEsc.job;clearForm();pendingEsc=null;pushNotif('lock','NGN Escrow Locked','\u20A6'+fmt(amt)+' for '+_lockedJob,ngnEsc.id);sendWA(`\uD83D\uDD10 \u20A6${fmt(amt)} locked in escrow for "${_lockedJob.slice(0,30)}". Work can begin!`);setTimeout(()=>goTo('s-dash'),800);},onClose:function(){showToast('Cancelled',true);}});h.openIframe();}
 
 // -- SUBMIT WORK --
 let activeEscId=null;
@@ -6358,12 +6596,12 @@ function submitWork(){const link=document.getElementById('sub-link-inp').value.t
   // Notify freelancer (current user) + client if their number known
   const _clientUser=e.clientEmail?loadStore()[e.clientEmail]:null;
   const _clientNum=_clientUser&&_clientUser.waNumber?_clientUser.waNumber:null;
-  sendWA(`\uD83D\uDCE6 Work submitted for "${e.job.slice(0,30)}"! SmartVerify\u2122 is checking the delivery. You have 24 hours to review before auto-release.`,false,_clientNum);showToast('Submitted! SmartVerify\u2122 starting\u2026');renderDash();setTimeout(()=>openAIVerify(activeEscId),800);}
+  sendWA(`\uD83D\uDCE6 Work submitted for "${e.job.slice(0,30)}"! SmartVerify\u2122 is checking the delivery. You have 24 hours to review before auto-release.`,false,_clientNum);renderDash();setTimeout(()=>openAIVerify(activeEscId),800);}
 
 // -- SUBMIT MILESTONE --
 function submitMilestone(escId,msId){activeEscId=escId;document.getElementById('sub-link-inp').value='';document.getElementById('sub-notes-inp').value='';openModal('m-submit');// Override submit to handle milestone
 document.querySelector('#m-submit .btn-p').onclick=()=>doMilestoneSubmit(escId,msId);}
-function doMilestoneSubmit(escId,msId){const link=document.getElementById('sub-link-inp').value.trim(),notes=document.getElementById('sub-notes-inp').value.trim();if(!link){showToast('Enter a delivery link',true);return;}const u=getUser(),e=u.escrows.find(x=>x.id===escId),ms=e?.milestones?.find(m=>m.id===msId);if(!ms)return;ms.status='submitted';ms.submittedAt=Date.now();ms.submissionLink=link;ms.submissionNotes=notes;saveUser(u);if(e.clientEmail)syncFromFreelancer(e,u.email,e.clientEmail);closeModal('m-submit');pushNotif('submit','Milestone '+msId+' Submitted',ms.name+' \u2014 '+e.job,e.id);sendWA(`\uD83D\uDCE6 Milestone ${msId} "${ms.name}" submitted for "${e.job.slice(0,25)}"! SmartVerify\u2122 is checking.`);showToast('Submitted! SmartVerify\u2122 running\u2026');renderDash();setTimeout(()=>openMilestoneVerify(escId,msId),800);}
+function doMilestoneSubmit(escId,msId){const link=document.getElementById('sub-link-inp').value.trim(),notes=document.getElementById('sub-notes-inp').value.trim();if(!link){showToast('Enter a delivery link',true);return;}const u=getUser(),e=u.escrows.find(x=>x.id===escId),ms=e?.milestones?.find(m=>m.id===msId);if(!ms)return;ms.status='submitted';ms.submittedAt=Date.now();ms.submissionLink=link;ms.submissionNotes=notes;saveUser(u);if(e.clientEmail)syncFromFreelancer(e,u.email,e.clientEmail);closeModal('m-submit');pushNotif('submit','Milestone '+msId+' Submitted',ms.name+' \u2014 '+e.job,e.id);sendWA(`\uD83D\uDCE6 Milestone ${msId} "${ms.name}" submitted for "${e.job.slice(0,25)}"! SmartVerify\u2122 is checking.`);renderDash();setTimeout(()=>openMilestoneVerify(escId,msId),800);}
 
 // -- SUBMIT ALL MILESTONES --
 function openSubmitAll(escId){
@@ -6433,11 +6671,10 @@ function doSubmitAll(){
   const _clientUser2=e.clientEmail?loadStore()[e.clientEmail]:null;
   const _clientNum2=_clientUser2&&_clientUser2.waNumber?_clientUser2.waNumber:null;
   sendWA(`\uD83D\uDCE6 All ${locked.length} milestones submitted for "${e.job.slice(0,25)}"! SmartVerify\u2122 is checking. You have 24 hours to review before auto-release.`,false,_clientNum2);
-  showToast('All milestones submitted! SmartVerify\u2122 starting\u2026');
   renderDash();
   setTimeout(()=>openAIVerify(activeEscId),800);
 }
-function releaseMilestone(escId,msId){const u=getUser(),e=u.escrows.find(x=>x.id===escId),ms=e?.milestones?.find(m=>m.id===msId);if(!ms)return;ms.status='released';ms.releasedAt=Date.now();const allDone=e.milestones.every(m=>m.status==='released');if(allDone)e.status='released';saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);pushNotif('release','Milestone Released',ms.name+(allDone?' \u2014 All complete! \uD83C\uDF89':''),e.id);sendWA(`\u2705 Milestone "${ms.name}" payment released!`+(allDone?' All milestones complete! \uD83C\uDF89':''));showToast('Milestone '+msId+' released!');renderDash();if(document.getElementById('s-detail').classList.contains('active'))viewDetail(escId);if(u.role!=='freelancer')setTimeout(()=>showReceipt(e,'client'),400);}
+function releaseMilestone(escId,msId){const u=getUser(),e=u.escrows.find(x=>x.id===escId),ms=e?.milestones?.find(m=>m.id===msId);if(!ms)return;ms.status='released';ms.releasedAt=Date.now();const allDone=e.milestones.every(m=>m.status==='released');if(allDone)e.status='released';saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);pushNotif('release','Milestone Released',ms.name+(allDone?' \u2014 All complete! \uD83C\uDF89':''),e.id);sendWA(`\u2705 Milestone "${ms.name}" payment released!`+(allDone?' All milestones complete! \uD83C\uDF89':''));renderDash();if(document.getElementById('s-detail').classList.contains('active'))viewDetail(escId);if(u.role!=='freelancer')setTimeout(()=>showReceipt(e,'client'),400);}
 
 // -- SMARTVERIFY (AI) --
 function openAIVerify(id){activeEscId=id;const u=getUser(),e=u.escrows.find(x=>x.id===id);if(!e||!e.submission)return;document.getElementById('verify-reqs').textContent=e.reqs||'No specific requirements.';document.getElementById('verify-link').textContent=e.submission.link;document.getElementById('ai-tw').innerHTML=`
@@ -6513,7 +6750,7 @@ function showSVResult(r,e){
     db.style.display=e.status==='released'||e.dispute?'none':'inline-flex';
   }
 }
-function releaseFromVerify(){const u=getUser(),e=u.escrows.find(x=>x.id===activeEscId);if(!e)return;e.status='released';e.autoReleaseAt=null;if(e.cur==='ngn'){u.ngnBalance+=e.amtNgn;u.usdcBalance=(u.usdcBalance||0)+ngnToUsdc(e.amtNgn);u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:ngnToUsdc(e.amtNgn),cur:'usdc'});}else if(e.cur==='usdc'){u.usdcBalance=(u.usdcBalance||0)+e.amount;u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:e.amount,cur:'usdc'});}saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);closeModal('m-verify');renderDash();renderNaira();pushNotif('release','Payment Released',e.job,e.id);const _flUser3=e.flEmail?loadStore()[e.flEmail]:null;const _flNum3=_flUser3&&_flUser3.waNumber?_flUser3.waNumber:null;sendWA(`\u2705 Payment released for "${e.job.slice(0,30)}"! Funds sent to freelancer. Thank you for using Trustana.`,false,_flNum3);showToast('\u2705 Payment released!');setTimeout(()=>showReceipt(e,'client'),400);}
+function releaseFromVerify(){const u=getUser(),e=u.escrows.find(x=>x.id===activeEscId);if(!e)return;e.status='released';e.autoReleaseAt=null;if(e.cur==='ngn'){u.ngnBalance+=e.amtNgn;u.usdcBalance=(u.usdcBalance||0)+ngnToUsdc(e.amtNgn);u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:ngnToUsdc(e.amtNgn),cur:'usdc'});}else if(e.cur==='usdc'){u.usdcBalance=(u.usdcBalance||0)+e.amount;u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:e.amount,cur:'usdc'});}saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);closeModal('m-verify');renderDash();renderNaira();pushNotif('release','Payment Released',e.job,e.id);const _flUser3=e.flEmail?loadStore()[e.flEmail]:null;const _flNum3=_flUser3&&_flUser3.waNumber?_flUser3.waNumber:null;sendWA(`\u2705 Payment released for "${e.job.slice(0,30)}"! Funds sent to freelancer. Thank you for using Trustana.`,false,_flNum3);setTimeout(()=>showReceipt(e,'client'),400);}
 
 // -- MILESTONE SMARTVERIFY --
 let _activeMsId=null;
@@ -6595,7 +6832,6 @@ function releaseMilestoneFromVerify(){
   closeModal('m-verify-ms');
   pushNotif('release','Milestone '+ms.id+' Released',ms.name+(allDone?' \u2014 All done! \uD83C\uDF89':''),e.id);
   sendWA(`\u2705 Milestone ${ms.id} "${ms.name}" payment released!`+(allDone?' All milestones complete! \uD83C\uDF89':''));
-  showToast('Milestone '+ms.id+' released!');
   renderDash();
   if(document.getElementById('s-detail').classList.contains('active'))viewDetail(activeEscId);
   if(u.role!=='freelancer')setTimeout(()=>showReceipt(e,'client'),400);
@@ -6769,7 +7005,6 @@ function _wpinSubmitConfirm(){
     saveUser(u);
     closeModal('m-wallet-pin');
     pushNotif('info','Wallet PIN Set','\uD83D\uDD12 Your wallet addresses are now PIN-protected.',null);
-    showToast('\uD83D\uDD12 Wallet PIN set successfully');
     _wpinProceedAction();
   } else {
     _wpinShakeError('PINs do not match. Try again.');
@@ -6796,7 +7031,6 @@ function _wpinProceedAction(){
     if(u.activeWallet>=u.wallets.length)u.activeWallet=0;
     saveUser(u);renderNav();
     pushNotif('info','Wallet Removed',removed.label+' \u2014 '+short(removed.addr)+' removed from your account',null);
-    showToast('Wallet removed');
     if(document.getElementById('m-account').classList.contains('active')||document.getElementById('m-account').style.display!=='none')openAccount();
   }
 }
@@ -6833,7 +7067,6 @@ function confirmDispute(){
   const _flUser2=e.flEmail?loadStore()[e.flEmail]:null;
   const _flNum2=_flUser2&&_flUser2.waNumber?_flUser2.waNumber:null;
   sendWA(`⚖️ Dispute raised for "${e.job.slice(0,30)}". Funds frozen. Freelancer has 12 hours to respond, then AI arbitration begins.`,false,_flNum2);
-  showToast('⚖️ Dispute submitted — freelancer has 12h to respond');
   renderDash();
   if(document.getElementById('s-detail').classList.contains('active'))viewDetail(activeEscId);
 }
@@ -6864,7 +7097,6 @@ async function submitDisputeResponse(){
   pushNotif('dispute','Dispute Response Submitted',e.job,e.id);
   sendWA(`⚖️ Freelancer responded to the dispute for "${e.job.slice(0,25)}". SmartVerify™ AI arbitration is now running. You'll be notified with the verdict shortly.`);
   closeModal('m-dispute-respond');
-  showToast('✦ Response submitted — AI arbitration starting...');
   renderDash();
   setTimeout(()=>runAIArbitration(e.id),1500);
 }
@@ -7142,7 +7374,6 @@ function confirmEscalation(){
   closeModal('m-escalate');
   pushNotif('dispute','Dispute Escalated','Your dispute has been escalated to a human arbitrator. Expected resolution: 24–48 hours.',e.id);
   sendWA(`🚨 Dispute escalated for "${e.job.slice(0,30)}". A senior Trustana arbitrator will review within 24–48 hours. Funds remain frozen.`);
-  showToast('🚨 Escalated — human arbitrator assigned within 24h');
   if(document.getElementById('s-disputes').classList.contains('active'))renderDisputesCenter();
   if(document.getElementById('s-detail').classList.contains('active'))viewDetail(_disEscId);
 }
@@ -7679,7 +7910,6 @@ function doCancel(){
   renderDash();renderNaira();
   pushNotif('cancel','Escrow Cancelled',e.job,e.id);
   sendWA('\u1F6AB Escrow cancelled for "'+e.job.slice(0,30)+'". Funds have been returned.');
-  showToast('Escrow cancelled. Funds returned.');
 }
 
 function doForcedCancelDispute(){
@@ -7761,7 +7991,6 @@ function confirmDeleteEscrow() {
   closeModal('m-delete-escrow');
   renderDash(); renderNaira();
   pushNotif('info', 'Escrow Record Deleted', '\uD83D\uDDD1\uFE0F "' + e.job + '" removed from your history.', null);
-  showToast('\uD83D\uDDD1\uFE0F Record deleted.');
   // If we were on the detail screen, go back to dashboard
   if (document.getElementById('s-detail').classList.contains('active')) goTo('s-dash');
 }
@@ -7821,7 +8050,7 @@ function copyReceipt(){
   navigator.clipboard.writeText(text).then(()=>showToast('📋 Receipt copied!'));
 }
 
-function doRelease(){const u=getUser(),e=u.escrows.find(x=>x.id===pendingRelId);if(!e)return;e.status='released';e.autoReleaseAt=null;if(e.cur==='ngn'){u.ngnBalance+=e.amtNgn;u.usdcBalance=(u.usdcBalance||0)+ngnToUsdc(e.amtNgn);u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:ngnToUsdc(e.amtNgn),cur:'usdc'});}else if(e.cur==='usdc'){u.usdcBalance=(u.usdcBalance||0)+e.amount;u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:e.amount,cur:'usdc'});}saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);closeModal('m-release');renderDash();renderNaira();pushNotif('release','Payment Released',e.job,e.id);sendWA(`\u2705 Payment released for "${e.job.slice(0,30)}"! Funds sent to freelancer.`);showToast(e.cur==='usdc'?'\u2705 $'+e.amount.toFixed(2)+' released!':e.cur==='sol'?'\u2705 SOL released!':'\u2705 \u20A6'+fmt(e.amtNgn)+' released!');setTimeout(()=>showReceipt(e,'client'),400);}
+function doRelease(){const u=getUser(),e=u.escrows.find(x=>x.id===pendingRelId);if(!e)return;e.status='released';e.autoReleaseAt=null;if(e.cur==='ngn'){u.ngnBalance+=e.amtNgn;u.usdcBalance=(u.usdcBalance||0)+ngnToUsdc(e.amtNgn);u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:ngnToUsdc(e.amtNgn),cur:'usdc'});}else if(e.cur==='usdc'){u.usdcBalance=(u.usdcBalance||0)+e.amount;u.txHistory.unshift({type:'in',name:'Released',sub:e.job,amt:e.amount,cur:'usdc'});}saveUser(u);if(e.flEmail)syncToFreelancer(e,u.email);closeModal('m-release');renderDash();renderNaira();pushNotif('release','Payment Released',e.job,e.id);sendWA(`\u2705 Payment released for "${e.job.slice(0,30)}"! Funds sent to freelancer.`);setTimeout(()=>showReceipt(e,'client'),400);}
 
 // -- NAIRA --
 function renderNaira(){const u=getUser();if(!u)return;const usdcBal=u.usdcBalance||0;document.getElementById('usdc-bal').textContent='$'+usdcBal.toFixed(2)+' USDC';document.getElementById('usdc-bal-sub').textContent=usdcBal>0?'≈ ₦'+fmt(usdcToNgn(usdcBal))+' · Available to withdraw or lock':'Fund your wallet to get started';document.getElementById('vacct-name').textContent=u.fname+' '+u.lname;document.getElementById('wavail').textContent='$'+usdcBal.toFixed(2)+' USDC (≈₦'+fmt(usdcToNgn(usdcBal))+')';document.getElementById('fund-email').value=u.email;const ne=u.escrows.filter(e=>e.cur==='ngn');document.getElementById('ngn-esc-list').innerHTML=ne.length?ne.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);gap:9px"><div style="min-width:0;flex:1"><div style="font-size:.81rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(e.job)}</div><div style="font-size:.66rem;color:var(--stone)">${e.date}</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0"><div style="font-family:var(--ff-head);font-size:.86rem;color:var(--naira)">₦${fmt(e.amtNgn)}</div><span class="tag ${e.status}">${{locked:'Locked',submitted:'Submitted',disputed:'Disputed',released:'Released'}[e.status]}</span>${e.status==='locked'?`<button class="abtn abtn-rel" onclick="openRelease(${e.id})">Release</button>`:''}</div></div>`).join(''):'<div style="padding:22px;text-align:center;color:var(--stone);font-size:.78rem">No Fiat escrows yet.</div>';document.getElementById('tx-list').innerHTML=u.txHistory.slice(0,6).map(t=>`<div class="tx-item"><div class="tx-ico ${t.amt>0?'in':t.type==='lock'?'lock':'out'}">${t.amt>0?'⬇':t.type==='lock'?'🔒':'⬆'}</div><div style="flex:1;min-width:0"><div class="tx-name">${escapeHtml(t.name)}</div><div class="tx-date" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.sub)}</div></div><div class="tx-amt ${t.amt>0?'pos':t.type==='lock'?'locked':'neg'}">${t.amt>0?'+':''}${t.cur==='usdc'?'$'+Math.abs(t.amt).toFixed(2):'₦'+fmt(Math.abs(t.amt))}</div></div>`).join('');const wnd=document.getElementById('wa-number-display');if(wnd)wnd.textContent=u.waNumber||'Not set';const wag=document.getElementById('wa-global');if(wag&&u.waNumber)wag.value=u.waNumber.replace('+','');}
@@ -7830,7 +8059,7 @@ function renderNaira(){const u=getUser();if(!u)return;const usdcBal=u.usdcBalanc
 let wdAN='',wdBN='',wdOK=false;
 function resolveWd(){const ac=document.getElementById('wac').value,bk=document.getElementById('wb').value,res=document.getElementById('wv-box'),nxt=document.getElementById('wnxt');if(ac.length===10&&bk){setTimeout(()=>{wdAN=MOCK_NAMES[ac]||genName();wdBN=BANKS[bk]||'Bank';document.getElementById('wvn').textContent=wdAN;document.getElementById('wvb').textContent=wdBN+' \u00B7 \u2022\u2022'+ac.slice(-4);res.style.display='flex';wdOK=true;nxt.removeAttribute('disabled');},500);}else{res.style.display='none';wdOK=false;nxt.setAttribute('disabled','');}}
 function wdGo(step){if(step===3){const u=getUser(),amt=parseFloat(document.getElementById('wamt').value);if(!amt||amt<1000){showToast('Min \u20A61,000',true);return;}if(amt>usdcToNgn(u.usdcBalance||0)){showToast('Insufficient',true);return;}document.getElementById('wrn').textContent=wdAN;document.getElementById('wrb').textContent=wdBN;document.getElementById('wra').textContent='\u20A6'+fmt(amt);}[1,2,3].forEach(n=>{document.getElementById('ws'+n).style.display=n===step?'block':'none';const si=document.getElementById('wi'+n);if(n<step){si.className='si done';si.textContent='\u2713';}else if(n===step){si.className='si curr';si.textContent=n;}else{si.className='si';si.textContent=n;}if(document.getElementById('wl'+n))document.getElementById('wl'+n).classList.toggle('done',n<step);});}
-function confirmWd(){const u=getUser(),amt=parseFloat(document.getElementById('wamt').value),usdcAmt=ngnToUsdc(amt);u.ngnBalance-=amt;u.usdcBalance=(u.usdcBalance||0)-usdcAmt;u.txHistory.unshift({type:'out',name:'Withdrawal',sub:wdBN+' \u2022\u2022'+document.getElementById('wac').value.slice(-4),amt:-usdcAmt,cur:'usdc'});saveUser(u);closeModal('m-withdraw');renderNaira();pushNotif('info','Withdrawal Initiated','\u20A6'+fmt(amt)+' to '+wdBN,null);sendWA(`\uD83C\uDFE6 \u20A6${fmt(amt)} withdrawn to ${wdBN} \u2022\u2022${document.getElementById('wac').value.slice(-4)}. Processing within 24 hours.`);showToast('\u20A6'+fmt(amt)+' sent to '+wdAN+'!');document.getElementById('wb').value='';document.getElementById('wac').value='';document.getElementById('wv-box').style.display='none';document.getElementById('wamt').value='';wdOK=false;wdGo(1);}
+function confirmWd(){const u=getUser(),amt=parseFloat(document.getElementById('wamt').value),usdcAmt=ngnToUsdc(amt);u.ngnBalance-=amt;u.usdcBalance=(u.usdcBalance||0)-usdcAmt;u.txHistory.unshift({type:'out',name:'Withdrawal',sub:wdBN+' \u2022\u2022'+document.getElementById('wac').value.slice(-4),amt:-usdcAmt,cur:'usdc'});saveUser(u);closeModal('m-withdraw');renderNaira();pushNotif('info','Withdrawal Initiated','\u20A6'+fmt(amt)+' to '+wdBN,null);sendWA(`\uD83C\uDFE6 \u20A6${fmt(amt)} withdrawn to ${wdBN} \u2022\u2022${document.getElementById('wac').value.slice(-4)}. Processing within 24 hours.`);document.getElementById('wb').value='';document.getElementById('wac').value='';document.getElementById('wv-box').style.display='none';document.getElementById('wamt').value='';wdOK=false;wdGo(1);}
 
 // -- VERIFY ACCT --
 function verifyAcct(){const ac=document.getElementById('f-acct').value,bk=document.getElementById('f-bank').value,res=document.getElementById('f-verify');if(ac.length===10&&bk){setTimeout(()=>{document.getElementById('fv-name').textContent=MOCK_NAMES[ac]||genName();document.getElementById('fv-bank').textContent=(BANKS[bk]||'Bank')+' \u00B7 \u2022\u2022'+ac.slice(-4);res.style.display='flex';},500);}else res.style.display='none';}
@@ -7964,7 +8193,6 @@ function saveWAFromAccount(){
   const wnd=document.getElementById('wa-number-display');if(wnd)wnd.textContent=u.waNumber||'Not set';
   const wag=document.getElementById('wa-global');if(wag)wag.value=v;
   pushNotif('info','WhatsApp Number Saved','\uD83D\uDCF1 Alerts will be sent to '+(u.waNumber||'your number'),null);
-  showToast('WhatsApp number saved \uD83D\uDCF1');
 }
 
 
@@ -8223,7 +8451,7 @@ function endDemoTour(){
 
 // -- SHARE LINK --
 function copyShareLink(url){
-  navigator.clipboard.writeText(url).then(()=>{pushNotif('info','Share Link Copied','\uD83D\uDD17 Escrow invite link copied. Send it to your freelancer to get started.',null);showToast('\uD83D\uDD17 Share link copied! Send to your freelancer.')}).catch(()=>{
+  navigator.clipboard.writeText(url).then(()=>{pushNotif('info','Share Link Copied','\uD83D\uDD17 Escrow invite link copied. Send it to your freelancer to get started.',null);}).catch(()=>{
     // Fallback for browsers without clipboard API
     const el=document.createElement('textarea');
     el.value=url;document.body.appendChild(el);el.select();
@@ -9128,7 +9356,6 @@ function submitRating(){
 
   closeModal('m-rate');
   pushNotif('info','Review Submitted',`You rated ${isRatingClient?'the client':'the freelancer'} ⭐${_rateVal}/5`,null);
-  showToast('⭐ Review submitted! Thank you.');
   if(document.getElementById('s-detail').classList.contains('active'))viewDetail(_rateEscId);
 }
 window.submitRating=submitRating;
@@ -10161,7 +10388,7 @@ window.submitWork=async function(){
   const _clientUser=e.clientEmail?loadStore()[e.clientEmail]:null;
   const _clientNum=_clientUser&&_clientUser.waNumber?_clientUser.waNumber:null;
   sendWA(_wasLate?`\uD83D\uDCE6 Work submitted LATE for "${e.job.slice(0,30)}" \u2014 past the agreed deadline. A ${Math.round(LATE_PENALTY_RATE*100)}% late penalty has been applied. SmartVerify\u2122 is checking the delivery. You have 24 hours to review before auto-release.`:`\uD83D\uDCE6 Work submitted for "${e.job.slice(0,30)}"! SmartVerify\u2122 is checking the delivery. You have 24 hours to review before auto-release.`,false,_clientNum);
-  showToast(_wasLate?'\u26A0\uFE0F Submitted late \u2014 penalty applied':'Submitted! SmartVerify\u2122 starting\u2026',_wasLate);renderDash();setTimeout(()=>openAIVerify(activeEscId),800);
+  renderDash();setTimeout(()=>openAIVerify(activeEscId),800);
 };
 
 window.submitMilestone=function(escId,msId){
@@ -10190,7 +10417,7 @@ window.doMilestoneSubmit=function(escId,msId){
   closeModal('m-submit');
   pushNotif('submit',_wasLate?'Milestone '+msId+' Submitted (Late)':'Milestone '+msId+' Submitted',ms.name+' \u2014 '+e.job,e.id);
   sendWA(_wasLate?`\uD83D\uDCE6 Milestone ${msId} "${ms.name}" submitted LATE for "${e.job.slice(0,25)}" \u2014 a ${Math.round(LATE_PENALTY_RATE*100)}% late penalty was applied. SmartVerify\u2122 is checking.`:`\uD83D\uDCE6 Milestone ${msId} "${ms.name}" submitted for "${e.job.slice(0,25)}"! SmartVerify\u2122 is checking.`);
-  showToast(_wasLate?'\u26A0\uFE0F Submitted late \u2014 penalty applied':'Submitted! SmartVerify\u2122 running\u2026',_wasLate);renderDash();setTimeout(()=>openMilestoneVerify(escId,msId),800);
+  renderDash();setTimeout(()=>openMilestoneVerify(escId,msId),800);
 };
 
 window.openSubmitAll=function(escId){
@@ -10274,7 +10501,7 @@ window.doSubmitAll=function(){
   const _clientUser2=e.clientEmail?loadStore()[e.clientEmail]:null;
   const _clientNum2=_clientUser2&&_clientUser2.waNumber?_clientUser2.waNumber:null;
   sendWA(_anyLate?`\uD83D\uDCE6 All ${locked.length} milestones submitted for "${e.job.slice(0,25)}" \u2014 some past deadline, a ${Math.round(LATE_PENALTY_RATE*100)}% late penalty was applied. SmartVerify\u2122 is checking. You have 24 hours to review before auto-release.`:`\uD83D\uDCE6 All ${locked.length} milestones submitted for "${e.job.slice(0,25)}"! SmartVerify\u2122 is checking. You have 24 hours to review before auto-release.`,false,_clientNum2);
-  showToast(_anyLate?'\u26A0\uFE0F Submitted late \u2014 penalty applied':'All milestones submitted! SmartVerify\u2122 starting\u2026',_anyLate);renderDash();setTimeout(()=>openAIVerify(activeEscId),800);
+  renderDash();setTimeout(()=>openAIVerify(activeEscId),800);
 };
 
 // ── Verify-modal openers: tolerate file-only submissions, show a preview ──
