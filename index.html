@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2345,6 +2346,10 @@ select option{background:var(--ink3)}
 .tb-body .tb-quick-wrap .tb-quick:nth-child(7){animation-delay:.26s}
 .tb-body .tb-quick-wrap .tb-quick:nth-child(8){animation-delay:.30s}
 .tb-body .tb-quick-wrap .tb-quick:nth-child(9){animation-delay:.34s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(10){animation-delay:.38s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(11){animation-delay:.42s}
+.tb-body .tb-quick-wrap .tb-quick:nth-child(12){animation-delay:.46s}
+.tb-body .chat-msg{white-space:pre-wrap}
 .tb-quick-wrap{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px;align-items:flex-start}
 .tb-quick{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(168,85,247,.3);border-radius:100px;padding:7px 13px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:var(--ff-ui);text-align:left;transition:background var(--trans)}
 .tb-quick:hover{background:var(--purple);color:var(--white)}
@@ -8632,6 +8637,8 @@ function advanceDemoTour(){
 
 // -- TRUST BUDDY CHATBOT --
 const TB_TOPICS=[
+  {id:'signup',label:'How do I sign up?',keywords:['sign up','signup','sign in','login','log in','register','create account','create an account','get started','onboard','verify my email','otp','forgot password','reset password'],
+    a:'Tap "Create Account" on the Sign In screen, fill in your name, email, password, and WhatsApp number for alerts, then verify with the 6-digit code sent to your email. Pick whether you\'re a Freelancer, Client, or Both, and you\'re in — free to join.'},
   {id:'what',label:'What is Trustana?',keywords:['what is trustana','how does it work','how does trustana work'],
     a:'Trustana is a freelance escrow platform. The client locks payment — settled in USDC, funded via Crypto or Fiat, any currency — before work begins. The freelancer delivers, SmartVerify™ AI checks it against the requirements, and funds release. If the client goes quiet, funds auto-release after 24 hours.'},
   {id:'safe',label:'Is my money safe?',keywords:['safe','secure','security','scam','trust'],
@@ -8648,8 +8655,159 @@ const TB_TOPICS=[
     a:'Yes — 7 days after an escrow is completed or cancelled, a 🗑️ delete option appears on that job in your Dashboard so either party can clear it from their history.'},
   {id:'fee',label:'What does it cost?',keywords:['cost','fee','price','pricing','charge'],
     a:'Creating an account is free. Trustana takes a small platform fee only on successfully released escrows — nothing on cancellations or disputes.'},
+  {id:'rating',label:'How do ratings & profiles work?',keywords:['rating','rate','review','profile link','portfolio'],
+    a:'After a job completes, both sides can rate each other. Freelancers can also share their Trustana profile link with prospective clients — it shows their rating, reviews, and completed job history, so clients can vet them before hiring.'},
+  {id:'chat',label:'Can I message the other party?',keywords:['chat','message','messaging','talk to freelancer','talk to client'],
+    a:'Yes — every job has its own in-app chat, right on the job itself, so you and the client or freelancer can message directly about that work.'},
 ];
 let _tbOpened=false;
+let _tbHistory=[]; // {role:'user'|'assistant',content} — short rolling context for the AI
+
+function _tbHasRealAIKey(){
+  return typeof ANTHROPIC_API_KEY==='string' && ANTHROPIC_API_KEY && ANTHROPIC_API_KEY!=='YOUR_ANTHROPIC_API_KEY';
+}
+
+// ── Account-lookup tools ─────────────────────────────────────────
+// These only ever read the SIGNED-IN user's own already-loaded local
+// data (getUser()) — the same data already sitting in this browser
+// session's memory. No cross-user access, nothing sent anywhere new.
+function _tbEscrowSummary(e){
+  return {
+    id:e.id,job:e.job,status:e.status,
+    amount:e.amount,currency:(e.cur||'usdc').toUpperCase(),date:e.date,
+    milestones:Array.isArray(e.milestones)?e.milestones.map(m=>({name:m.name,status:m.status,amount:m.amount})):null,
+    smartverify:e.aiResult?{verdict:e.aiResult.verdict,score:e.aiResult.score,summary:e.aiResult.summary}:null,
+    dispute:e.dispute?{status:e.dispute.status||'raised',hasFreelancerResponse:!!(e.dispute.freelancerResponse)}:null
+  };
+}
+function _tbToolGetMyEscrows(){
+  const u=getUser();
+  if(!u||!Array.isArray(u.escrows))return{escrows:[]};
+  return{escrows:u.escrows.map(_tbEscrowSummary)};
+}
+function _tbToolGetEscrowDetail(id){
+  const u=getUser();
+  const e=u&&Array.isArray(u.escrows)?u.escrows.find(x=>x.id===id):null;
+  if(!e)return{error:'No escrow found with that id on this account.'};
+  return{escrow:{..._tbEscrowSummary(e),reqs:e.reqs||null,submission:e.submission?{link:e.submission.link,notes:e.submission.notes,submittedAt:e.submission.submittedAt}:null}};
+}
+const TB_TOOLS=[
+  {name:'get_my_escrows',
+   description:"List the signed-in user's own escrows/jobs on Trustana — id, job title, status, amount, date. Use whenever they ask about their jobs or payments in general (e.g. \"what jobs do I have\", \"has anything been paid out\").",
+   input_schema:{type:'object',properties:{}}},
+  {name:'get_escrow_detail',
+   description:"Full detail on one of the signed-in user's own escrows by id — requirements, milestone breakdown, SmartVerify™ result, dispute status. Call get_my_escrows first if you don't already know the id.",
+   input_schema:{type:'object',properties:{id:{type:'number',description:'The escrow id, from get_my_escrows'}},required:['id']}}
+];
+
+function _tbSystemPrompt(){
+  const u=getUser();
+  const who=u?`You're chatting with ${u.fname}, who is signed in as a ${u.role}.`:'You\'re chatting with a visitor who is not signed in.';
+  const toolNote=u
+    ?'You have two tools: get_my_escrows and get_escrow_detail. They read this signed-in user\'s own jobs — nobody else\'s. Use them whenever the question is about their actual jobs, payments, milestones, SmartVerify™ results, or disputes, instead of guessing. Only report what the tools actually return; if a tool returns no matching escrow, say so rather than inventing one. You still can\'t see raw wallet addresses, transaction hashes, or bank details — for those, hand off to the team.'
+    :'This visitor isn\'t signed in, so no account-lookup tools are available. If they ask about their own jobs or payments, ask them to sign in first, or offer to connect them with the team.';
+  return `You are Trust Buddy, the in-app support chatbot for Trustana — a freelance escrow platform. Your personality: upbeat, genuinely friendly, and a little playful, but always useful — you're not just an FAQ recital, you actually talk like a person who's happy to help.
+
+${who}
+
+═══ GETTING STARTED ═══
+- To join: tap "Create Account" on the Sign In screen, enter first/last name, email, a password (min 8 characters), and a WhatsApp number for alerts, then verify with a 6-digit code emailed to you. Choose whether you're a Freelancer, Client, or Both — it's free to sign up.
+- Freelancer-only accounts can't create escrows (only Client/Both can) — freelancers get invited into jobs by a client and submit work against them.
+- Forgot password: there's a "Forgot password?" link on the Sign In tab that resets it via an emailed code.
+
+═══ ESCROW & PAYMENT FLOW ═══
+- Clients create an escrow: describe the job, set requirements, and lock payment before work begins. Funds are settled as USDC — funded via Naira/Paystack, card/Stripe, or Crypto/Phantom, in any currency.
+- Large projects can be split into milestones (typically 2-3), each with its own lock and release, so the freelancer gets paid progressively instead of one lump sum at the end.
+- The freelancer is notified instantly, delivers the work with a link + notes, and SmartVerify™ (powered by Claude AI) reads the original requirements and checks the delivery against them — verdict of Pass, Partial, or Fail, with a scored breakdown and specific per-requirement notes.
+- The client reviews and releases payment with one tap. If the client goes quiet for 24 hours after the freelancer submits, funds auto-release to the freelancer automatically — freelancers are always guaranteed payment eventually.
+- 7 days after a job is completed or cancelled, a 🗑️ delete option appears so either party can permanently clear it from their history.
+
+═══ DISPUTES & ARBITRATION ═══
+- Either the client or freelancer can raise a dispute at any point before funds release — from the job itself or the Dispute Centre — by describing the issue and submitting evidence.
+- Once raised, funds freeze for 48 hours. The other party is notified and can submit their own response with their own evidence.
+- Trustana runs AI-assisted arbitration weighing both sides' evidence and the SmartVerify™ score, producing one of three outcomes: full release to the freelancer, full refund to the client, or a split release reflecting how much was actually delivered.
+- If either side isn't satisfied, it can escalate to a human arbitrator, who reviews within 24-48 hours and issues a binding decision. Funds stay frozen and protected the whole time — neither side can access them unilaterally.
+
+═══ WALLET & FUNDING ═══
+- Everyone has a USDC Wallet. Clients/Both fund it with Naira (Paystack), card (Stripe), or Crypto (Phantom) — any method settles as USDC, ready to lock into an escrow.
+- Pure freelancer accounts don't fund — their wallet fills from job payouts, and their main action there is withdrawing to a bank account.
+
+═══ TRUST, RATINGS & PROFILE ═══
+- After a job completes, both sides can rate each other.
+- Freelancers can share their Trustana profile link with prospective clients — it shows their rating, reviews, and completed escrow history, so people can vet them and hire directly.
+- In-app chat is available right on a job so client and freelancer can message each other about that specific job.
+- WhatsApp notifications go out for key events — job submitted, SmartVerify™ result ready, payment released, dispute raised/resolved, etc. — so no one has to keep refreshing the app.
+
+═══ FEES ═══
+- Creating an account is free. Trustana takes a small platform fee only on successfully released escrows — nothing on cancellations or disputes.
+
+═══ ACCOUNT LOOKUP ═══
+${toolNote}
+
+═══ HOW TO THINK AND REPLY ═══
+- Casual small talk — greetings, "how are you", thanks, goodbyes, or someone just being friendly — gets a brief, warm, human reply in your own voice first, then a light steer toward how you can help. Don't treat small talk as "off-topic" and deflect it.
+- Actually reason about what's being asked before answering — if a question has multiple parts, address each one; if it's ambiguous, make a reasonable assumption and answer, or ask one quick clarifying question if genuinely needed.
+- Default to a short, conversational answer (2-5 sentences). For genuinely step-by-step questions (like signing up, or resolving a dispute), it's fine to lay out a brief numbered list using line breaks — but keep each step to one line, no markdown symbols like ** or #, this renders as plain chat text.
+- Be warm, direct, and specific — pull in the actual details above (or from a tool call) rather than vague generalities.
+- Never invent or guess specifics beyond what's stated above or returned by a tool.
+- For bugs, complaints, anything sensitive, or anything you're still not confident about after checking, suggest they talk to the Trustana team via "Talk to a human" or the options below rather than guessing.
+- Never give financial, legal, or tax advice.
+- Stay on topics about Trustana and how it works — politely decline anything unrelated (general knowledge questions, coding help, etc.) and steer back.`;
+}
+
+async function _tbCallAI(){
+  let messages=[..._tbHistory];
+  const u=getUser();
+  for(let round=0;round<4;round++){
+    const body={model:'claude-sonnet-4-20250514',max_tokens:500,system:_tbSystemPrompt(),messages};
+    if(u)body.tools=TB_TOOLS;
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+    if(!r.ok){const err=await r.json().catch(()=>({}));throw new Error(err.error?.message||'API error '+r.status);}
+    const d=await r.json();
+    if(d.stop_reason==='tool_use'){
+      const toolResults=[];
+      for(const block of (d.content||[])){
+        if(block.type!=='tool_use')continue;
+        let result;
+        try{
+          if(block.name==='get_my_escrows')result=_tbToolGetMyEscrows();
+          else if(block.name==='get_escrow_detail')result=_tbToolGetEscrowDetail(block.input&&block.input.id);
+          else result={error:'Unknown tool'};
+        }catch(err){result={error:'Tool failed: '+(err&&err.message||'unknown')};}
+        toolResults.push({type:'tool_result',tool_use_id:block.id,content:JSON.stringify(result)});
+      }
+      messages=[...messages,{role:'assistant',content:d.content},{role:'user',content:toolResults}];
+      continue;
+    }
+    const text=(d.content||[]).find(b=>b.type==='text')?.text;
+    if(!text)throw new Error('empty_reply');
+    return text.trim();
+  }
+  throw new Error('tool_loop_exceeded');
+}
+
+const TB_SMALLTALK=[
+  {re:/how(?:'s| is| are)\s+(?:you|it going|things)|how you doin/,
+   a:'I\'m doing great, thanks for asking! 😊 I\'m Trust Buddy, here to help with anything Trustana-related — what can I help you with?'},
+  {re:/\b(hi|hello|hey|yo|sup|good morning|good afternoon|good evening)\b/,
+   a:'Hey! 👋 What can I help you with today?'},
+  {re:/\b(thanks|thank you|thx|appreciate it|appreciate you)\b/,
+   a:'Anytime! Let me know if anything else comes up.'},
+  {re:/\b(bye|goodbye|see ya|see you|later|that'?s all|talk later)\b/,
+   a:'Take care! I\'ll be right here if you need anything else. 👋'},
+  {re:/\b(lol|haha|lmao|nice one|funny)\b/,
+   a:'Ha, glad I could bring some fun into your day! Anything Trustana-related I can help with?'},
+  {re:/\bwho are you\b|\bwhat are you\b|\bare you (a )?(human|real|bot|ai)\b/,
+   a:'I\'m Trust Buddy — Trustana\'s support assistant! I can walk you through how the platform works, or connect you with the human team for anything account-specific.'},
+];
+
+function _tbKeywordFallback(q){
+  if(/\b(human|agent|person|someone|support|team|representative)\b/.test(q))return '__ESCALATE__';
+  const chat=TB_SMALLTALK.find(t=>t.re.test(q));
+  if(chat)return chat.a;
+  const match=TB_TOPICS.find(t=>t.keywords.some(k=>q.includes(k)));
+  return match?match.a:'I\'m not totally sure about that one — pick a topic below, or talk to our team directly and they\'ll sort you out.';
+}
 
 function toggleTrustBuddy(){
   const p=document.getElementById('tb-panel');
@@ -8667,6 +8825,13 @@ function _tbScrollBottom(){
   requestAnimationFrame(()=>{b.scrollTo({top:b.scrollHeight,behavior:'smooth'});});
 }
 
+// Scrolls so the given element's top lands at the top of the visible
+// panel — used for bot replies, so a long quick-reply list appended
+// right after doesn't bury the answer itself off-screen above.
+function _tbScrollToTop(el){
+  requestAnimationFrame(()=>{el.scrollIntoView({behavior:'smooth',block:'start'});});
+}
+
 function _tbUserBubble(text){
   const b=document.getElementById('tb-body');
   const d=document.createElement('div');
@@ -8682,7 +8847,7 @@ function _tbBotBubble(text){
   d.className='chat-msg chat-msg-theirs';
   d.style.alignSelf='flex-start';
   d.textContent=text;
-  b.appendChild(d);_tbScrollBottom();
+  b.appendChild(d);_tbScrollToTop(d);
 }
 
 function _tbTypingThenReply(text,cb){
@@ -8696,6 +8861,34 @@ function _tbTypingThenReply(text,cb){
     _tbBotBubble(text);
     if(cb)cb();
   },550+Math.random()*350);
+}
+
+// Shows the typing dots, waits on `work` (a promise resolving to reply text
+// or the sentinel '__ESCALATE__'), then renders the bot's reply — real AI
+// reply when configured, keyword-matched fallback otherwise.
+async function _tbTypingThenAsyncReply(work,cb){
+  const b=document.getElementById('tb-body');
+  const t=document.createElement('div');
+  t.className='tb-typing';t.id='tb-typing-now';
+  t.innerHTML='<span></span><span></span><span></span>';
+  b.appendChild(t);_tbScrollBottom();
+  const minWait=new Promise(res=>setTimeout(res,550+Math.random()*350));
+  let text;
+  try{
+    [text]=await Promise.all([work(),minWait]);
+  }catch(err){
+    text=_tbKeywordFallback(''); // generic fallback text, no crash
+  }
+  const el=document.getElementById('tb-typing-now');if(el)el.remove();
+  if(text==='__ESCALATE__'){
+    _tbBotBubble('Of course — here\'s the fastest way to reach the team:');
+    _tbShowHandoffCard();
+  }else{
+    _tbBotBubble(text);
+    _tbHistory.push({role:'assistant',content:text});
+    if(_tbHistory.length>12)_tbHistory=_tbHistory.slice(-12);
+  }
+  if(cb)cb();
 }
 
 function _tbShowQuickReplies(){
@@ -8714,38 +8907,48 @@ function _tbShowQuickReplies(){
   human.textContent='🙋 Talk to a human';
   human.onclick=()=>_tbEscalate(wrap);
   wrap.appendChild(human);
-  b.appendChild(wrap);_tbScrollBottom();
+  b.appendChild(wrap);
+  // Deliberately no forced scroll here — the bot reply right above is
+  // already positioned at the top of the panel; scrolling further would
+  // just bury it under this button list again.
 }
 
 function _tbRemoveQuickReplies(wrap){if(wrap&&wrap.parentNode)wrap.remove();}
+
+function _tbShowHandoffCard(){
+  const b=document.getElementById('tb-body');
+  const card=document.createElement('div');
+  card.className='tb-handoff';
+  card.innerHTML=`
+    <div class="tb-handoff-title">Trustana Support</div>
+    <a class="tb-handoff-btn" href="https://wa.me/2348111592981" target="_blank" rel="noopener">📱 WhatsApp — usually replies in under 2 hours</a>
+    <a class="tb-handoff-btn" href="mailto:officialtrustana@gmail.com">🛠 Email Technical Support</a>
+    <button class="tb-handoff-btn" onclick="toggleTrustBuddy();goToContact()">📇 Open full Contact page</button>
+  `;
+  b.appendChild(card);
+  // Same reasoning as above — don't scroll past the message this card follows.
+}
 
 function _tbAskTopic(id,wrap){
   const topic=TB_TOPICS.find(t=>t.id===id);
   if(!topic)return;
   _tbRemoveQuickReplies(wrap);
   _tbUserBubble(topic.label);
+  _tbHistory.push({role:'user',content:topic.label});
   _tbTypingThenReply(topic.a,_tbShowQuickReplies);
+  _tbHistory.push({role:'assistant',content:topic.a});
 }
 
 function _tbEscalate(wrap){
   _tbRemoveQuickReplies(wrap);
   _tbUserBubble('🙋 Talk to a human');
   _tbTypingThenReply('Of course — here\'s the fastest way to reach the team:',()=>{
-    const b=document.getElementById('tb-body');
-    const card=document.createElement('div');
-    card.className='tb-handoff';
-    card.innerHTML=`
-      <div class="tb-handoff-title">Trustana Support</div>
-      <a class="tb-handoff-btn" href="https://wa.me/2348111592981" target="_blank" rel="noopener">📱 WhatsApp — usually replies in under 2 hours</a>
-      <a class="tb-handoff-btn" href="mailto:officialtrustana@gmail.com">🛠 Email Technical Support</a>
-      <button class="tb-handoff-btn" onclick="toggleTrustBuddy();goToContact()">📇 Open full Contact page</button>
-    `;
-    b.appendChild(card);_tbScrollBottom();
+    _tbShowHandoffCard();
     _tbShowQuickReplies();
   });
 }
 
-function sendTrustBuddyMsg(){
+async function sendTrustBuddyMsg(){
   const inp=document.getElementById('tb-input');
   const raw=inp.value.trim();
   if(!raw)return;
@@ -8753,29 +8956,19 @@ function sendTrustBuddyMsg(){
   // Remove any dangling quick-reply menu so the flow stays linear
   document.querySelectorAll('.tb-quick-wrap').forEach(w=>w.remove());
   _tbUserBubble(raw);
+  _tbHistory.push({role:'user',content:raw});
+  if(_tbHistory.length>12)_tbHistory=_tbHistory.slice(-12);
   const q=raw.toLowerCase();
   if(/\b(human|agent|person|someone|support|team|representative)\b/.test(q)){
-    _tbTypingThenReply('Of course — here\'s the fastest way to reach the team:',()=>{
-      const b=document.getElementById('tb-body');
-      const card=document.createElement('div');
-      card.className='tb-handoff';
-      card.innerHTML=`
-        <div class="tb-handoff-title">Trustana Support</div>
-        <a class="tb-handoff-btn" href="https://wa.me/2348111592981" target="_blank" rel="noopener">📱 WhatsApp — usually replies in under 2 hours</a>
-        <a class="tb-handoff-btn" href="mailto:officialtrustana@gmail.com">🛠 Email Technical Support</a>
-        <button class="tb-handoff-btn" onclick="toggleTrustBuddy();goToContact()">📇 Open full Contact page</button>
-      `;
-      b.appendChild(card);_tbScrollBottom();
-      _tbShowQuickReplies();
-    });
+    await _tbTypingThenAsyncReply(async()=>'__ESCALATE__',_tbShowQuickReplies);
     return;
   }
-  const match=TB_TOPICS.find(t=>t.keywords.some(k=>q.includes(k)));
-  if(match){
-    _tbTypingThenReply(match.a,_tbShowQuickReplies);
-  }else{
-    _tbTypingThenReply('I\'m not totally sure about that one — pick a topic below, or talk to our team directly and they\'ll sort you out.',_tbShowQuickReplies);
-  }
+  await _tbTypingThenAsyncReply(async()=>{
+    if(_tbHasRealAIKey()){
+      try{return await _tbCallAI();}catch(err){return _tbKeywordFallback(q);}
+    }
+    return _tbKeywordFallback(q);
+  },_tbShowQuickReplies);
 }
 
 function endDemoTour(){
